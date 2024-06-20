@@ -4,6 +4,7 @@ package(default_visibility = ["//visibility:public"])
 
 cc_binary(
     name = "custom",
+    linkstatic = True,
     deps = [
         "//mediapipe/framework:calculator_framework",
         "//mediapipe/framework/formats:image_frame",

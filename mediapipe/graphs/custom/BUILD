@@ -27,6 +27,7 @@ cc_library(
         "//mediapipe/calculators/tflite:tflite_converter_calculator",
         "//mediapipe/calculators/tflite:tflite_inference_calculator",
         "//mediapipe/calculators/tflite:tflite_tensors_to_floats_calculator",
+        "//mediapipe/calculators/tflite:tflite_tensors_to_bytestream_calculator",
     ],
 )
 

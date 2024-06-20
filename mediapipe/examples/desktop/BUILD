@@ -37,6 +37,7 @@ cc_library(
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/strings",
     ],
+    linkopts = ["-lcurl"]
 )
 
 cc_library(

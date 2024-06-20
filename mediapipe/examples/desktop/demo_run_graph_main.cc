@@ -29,7 +29,7 @@
 #include "mediapipe/framework/port/status.h"
 #include "mediapipe/util/resource_util.h"
 
-constexpr char kInputStream[] = "input_video";
+constexpr char kInputStream[] = "input_video_cpu";
 constexpr char kOutputStream[] = "transformed_input_video_cpu";
 constexpr char kWindowName[] = "MediaPipe";
 

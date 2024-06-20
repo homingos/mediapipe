@@ -1,24 +1,21 @@
-// Copyright 2019 The MediaPipe Authors.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-//
-// A simple main function to run a MediaPipe graph.
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <map>
-#include <string>
 #include <vector>
+#include <stdexcept>
+#include <asio.hpp>
+#include <asio/ts/internet.hpp>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <sstream>
+#include <cstdio>
+#include <cstring>
+#include <curl/curl.h>
 #include "mediapipe/framework/port/opencv_core_inc.h"
 #include "mediapipe/framework/port/opencv_features2d_inc.h"
 #include "mediapipe/framework/port/opencv_imgproc_inc.h"
@@ -44,8 +41,6 @@ ABSL_FLAG(std::string, input_side_packets, "",
           "for the CalculatorGraph. All values will be treated as the "
           "string type even if they represent doubles, floats, etc.");
 
-// Local file output flags.
-// Output stream
 ABSL_FLAG(std::string, output_stream, "",
           "The output stream to output to the local file in csv format.");
 ABSL_FLAG(std::string, output_stream_file, "",
@@ -54,12 +49,70 @@ ABSL_FLAG(std::string, output_stream_file, "",
 ABSL_FLAG(bool, strip_timestamps, false,
           "If true, only the packet contents (without timestamps) will be "
           "written into the local file.");
-// Output side packets
 ABSL_FLAG(std::string, output_side_packets, "",
           "A CSV of output side packets to output to local file.");
 ABSL_FLAG(std::string, output_side_packets_file, "",
           "The name of the local file to output all side packets specified "
           "with --output_side_packets. ");
+
+// Function to send HTTP POST request with binary data
+absl::Status SendHttpPostRequest(const std::string &url, const std::string &data)
+{
+  CURL *curl = curl_easy_init();
+  if (!curl)
+  {
+    return absl::InternalError("Failed to initialize curl");
+  }
+
+  curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+  curl_easy_setopt(curl, CURLOPT_POST, 1L); // Use POST method
+
+  // Set headers for binary data
+  struct curl_slist *headers = NULL;
+  headers = curl_slist_append(headers, "Content-Type: application/octet-stream"); // Indicate binary data
+  curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+
+  // Provide the binary data and its size
+  curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data.data());
+  curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, data.size());
+  auto start_time = std::chrono::high_resolution_clock::now();
+  CURLcode res = curl_easy_perform(curl);
+  if (res != CURLE_OK)
+  {
+    curl_slist_free_all(headers);
+    curl_easy_cleanup(curl);
+    return absl::InternalError(absl::StrCat("curl_easy_perform() failed: ", curl_easy_strerror(res)));
+  }
+  auto end_time = std::chrono::high_resolution_clock::now();
+
+  // Calculate RTT in milliseconds
+  auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+  ABSL_LOG(INFO) << "RTT: " << duration.count() << "ms";
+  curl_slist_free_all(headers);
+  curl_easy_cleanup(curl);
+  return absl::OkStatus();
+}
+
+// absl::Status OutputStreamToLocalFile(mediapipe::OutputStreamPoller &poller)
+// {
+//   mediapipe::Packet packet;
+//   while (poller.Next(&packet))
+//   {
+//     const auto &byte_string = packet.Get<std::string>();
+//     // ABSL_LOG(INFO) << "Float Result" << byte_string;
+//     // Send the byte string using your SendHttpPostRequest function
+//     absl::Status status = SendHttpPostRequest("https://us-central1-development-382019.cloudfunctions.net/mp-dump-test", byte_string);
+//     if (!status.ok())
+//     {
+//       ABSL_LOG(ERROR) << "Error sending HTTP POST request: " << status.message();
+//     }
+//     else
+//     {
+//       ABSL_LOG(INFO) << "HTTP POST request sent successfully.";
+//     }
+//   }
+//   return absl::OkStatus();
+// }
 
 absl::Status OutputStreamToLocalFile(mediapipe::OutputStreamPoller &poller)
 {
@@ -72,14 +125,11 @@ absl::Status OutputStreamToLocalFile(mediapipe::OutputStreamPoller &poller)
     // Check if the packet contains KeyPoin
     absl::StrAppend(&output_data, "TIME:::", packet.Timestamp().Value(), "\n");
     const auto &descriptors = packet.Get<std::vector<float>>();
-    std::stringstream ss;
-    for (size_t i = 0; i < descriptors.size(); ++i)
+    for (const float &value : descriptors)
     {
-      if (i != 0)
-        ss << ",";
-      ss << descriptors[i];
+      absl::StrAppend(&output_data, value);
+      absl::StrAppend(&output_data, ",");
     }
-    absl::StrAppend(&output_data, ss.str());
     absl::StrAppend(&output_data, "\n");
     file << output_data;
   }
@@ -89,6 +139,7 @@ absl::Status OutputStreamToLocalFile(mediapipe::OutputStreamPoller &poller)
 
 absl::Status OutputSidePacketsToLocalFile(mediapipe::CalculatorGraph &graph)
 {
+
   if (!absl::GetFlag(FLAGS_output_side_packets).empty() &&
       !absl::GetFlag(FLAGS_output_side_packets_file).empty())
   {

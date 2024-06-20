@@ -484,6 +484,16 @@ cc_library(
     alwayslink = 1,
 )
 
+cc_library(
+    name = "tflite_tensors_to_bytestream_calculator",
+    srcs = ["tflite_tensors_to_bytestream_calculator.cc"],
+    deps = [
+        "//mediapipe/framework:calculator_framework",
+        "//mediapipe/framework/port:ret_check",
+        "@org_tensorflow//tensorflow/lite:framework",
+    ],
+    alwayslink = 1,
+)
 # To run this with native GPU on Linux, use:
 # bazel test //mediapipe/calculators/tflite:tflite_inference_calculator_test --copt=-DTFLITE_GPU_EXTRA_GLES_DEPS --copt=-DMESA_EGL_NO_X11_HEADERS --copt=-DEGL_NO_X11 --config=grte_v5 --test_strategy=local
 cc_test(

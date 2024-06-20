@@ -70,6 +70,12 @@
         "variant": "cpp",
         "any": "cpp",
         "fstream": "cpp",
-        "*.inc": "cpp"
+        "*.inc": "cpp",
+        "csignal": "cpp",
+        "codecvt": "cpp",
+        "coroutine": "cpp",
+        "source_location": "cpp",
+        "future": "cpp",
+        "__nullptr": "cpp"
     }
 }

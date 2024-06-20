@@ -1,7 +1,5 @@
-
-output_stream: "floats"
-
-max_queue_size: 100
+output_stream: "bytes"
+max_queue_size: 5
 
 profiler_config {
   trace_enabled: true
@@ -29,9 +27,9 @@ node: {
   output_stream: "IMAGE:transformed_input_video_cpu"
   node_options: {
     [type.googleapis.com/mediapipe.ImageTransformationCalculatorOptions] {
-      output_width: 640
-      output_height: 480
-      scale_mode: STRETCH
+      output_width: 224
+      output_height: 224
+      scale_mode: FIT
     }
   }
 }
@@ -42,14 +40,31 @@ node {
   output_stream: "TENSORS:cropped_image_tensor"
   options: {
     [mediapipe.TfLiteConverterCalculatorOptions.ext] {
-      zero_center: true
+      zero_center: false
     }
   }
 }
 
+
+node {
+  calculator: "FlowLimiterCalculator"
+  input_stream: "cropped_image_tensor"
+  input_stream: "FINISHED:bytes"
+  input_stream_info: {
+    tag_index: 'FINISHED'
+    back_edge: true
+  }
+  options : {
+    [mediapipe.FlowLimiterCalculatorOptions.ext] {
+      max_in_flight: 1
+    }
+  }
+  output_stream: "throttled_image_tensor"
+}
+
 node {
   calculator: "TfLiteInferenceCalculator"
-  input_stream: "TENSORS:cropped_image_tensor"
+  input_stream: "TENSORS:throttled_image_tensor"
   output_stream: "TENSORS:tensors"
   options: {
     [mediapipe.TfLiteInferenceCalculatorOptions.ext] {
@@ -62,6 +77,6 @@ node {
 node {
   calculator: "TfLiteTensorsToFloatsCalculator"
   input_stream: "TENSORS:tensors"
-  output_stream: "FLOATS:floats"
+  output_stream: "FLOATS:bytes"
 }
-num_threads: 32
+num_threads: 2
