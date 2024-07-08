@@ -31,6 +31,7 @@ android_library(
         "//third_party:opencv",
         "@maven//:androidx_concurrent_concurrent_futures",
         "@maven//:com_google_guava_guava",
+        "@maven//:com_squareup_okhttp3_okhttp",
     ],
 )
 
@@ -80,5 +81,6 @@ android_binary(
     deps = [
         ":basic_lib",
         ":mediapipe_jni_lib",
+        
     ],
 )

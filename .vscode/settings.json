@@ -77,5 +77,39 @@
         "source_location": "cpp",
         "future": "cpp",
         "__nullptr": "cpp"
+    },
+    "java.compile.nullAnalysis.mode": "automatic",
+    "java.completion.favoriteStaticMembers": [
+        "android.*",
+        "com.squareup.okhttp3.*",
+        "org.junit.Assert.*",
+        "org.junit.Assume.*",
+        "org.junit.jupiter.api.Assertions.*",
+        "org.junit.jupiter.api.Assumptions.*",
+        "org.junit.jupiter.api.DynamicContainer.*",
+        "org.junit.jupiter.api.DynamicTest.*",
+        "org.mockito.Mockito.*",
+        "org.mockito.ArgumentMatchers.*",
+        "org.mockito.Answers.*"
+    ],
+    "bazel.projectview.open": false,
+    "files.exclude": {
+        "**/.git": true,
+        "**/.svn": true,
+        "**/.hg": true,
+        "**/CVS": true,
+        "**/.DS_Store": true,
+        "**/Thumbs.db": true,
+        ".eclipse": false,
+        ".git": false,
+        ".github": false,
+        ".vscode": false,
+        "docs": false,
+        "mediapipe": false,
+        "third_party": false,
+        "bazel-bin": false,
+        "bazel-mediapipe": false,
+        "bazel-out": false,
+        "bazel-testlogs": false
     }
 }

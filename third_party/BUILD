@@ -149,7 +149,7 @@ OPENCV_MODULES = [
 # to switch to static libraries.
 OPENCV_SHARED_LIBS = True
 
-OPENCV_SO_VERSION = "3.4"
+OPENCV_SO_VERSION = "4.0"
 
 cmake(
     name = "opencv_cmake",
@@ -300,6 +300,7 @@ android_library(
         "@maven//:androidx_core_core",
     ],
 )
+
 
 android_library(
     name = "androidx_legacy_support_v4",

@@ -1,7 +1,9 @@
 workspace(name = "mediapipe")
 
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+android_sdk_repository(name = "androidsdk", path = "/root/Android/Sdk")
+android_ndk_repository(name = "androidndk", api_level=21, path = "/root/Android/Sdk/ndk-bundle/android-ndk-r21")
 
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 # Protobuf expects an //external:python_headers target
 bind(
     name = "python_headers",
@@ -406,7 +408,7 @@ http_archive(
     build_file = "@//third_party:opencv_android.BUILD",
     strip_prefix = "OpenCV-android-sdk",
     type = "zip",
-    url = "https://github.com/opencv/opencv/releases/download/3.4.3/opencv-3.4.3-android-sdk.zip",
+    url = "https://github.com/opencv/opencv/releases/download/4.0.1/opencv-4.0.1-android-sdk.zip",
 )
 
 # After OpenCV 3.2.0, the pre-compiled opencv2.framework has google protobuf symbols, which will
@@ -507,6 +509,8 @@ maven_install(
         "com.google.guava:listenablefuture:1.0",
         "junit:junit:4.12",
         "org.hamcrest:hamcrest-library:1.3",
+        "com.squareup.okhttp3:okhttp:4.9.3",
+        "com.android.volley:volley:1.1.0",
     ],
     repositories = [
         "https://maven.google.com",
@@ -679,4 +683,3 @@ http_archive(
     urls = ["https://github.com/nlohmann/json/releases/download/v3.9.1/include.zip"],
     build_file = "@//third_party:nlohmann.BUILD",
 )
-

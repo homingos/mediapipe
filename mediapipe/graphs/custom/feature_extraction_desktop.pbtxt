@@ -1,30 +1,62 @@
+input_stream: "input_video_gpu"
+input_stream: "query_feats"
+output_stream: "output_video"
 output_stream: "bytes"
-max_queue_size: 5
+output_stream: "rr_index"
+num_threads: 16
 
-profiler_config {
-  trace_enabled: true
-  enable_profiler: true
-  trace_log_interval_count: 200
-  trace_log_path: "./trace"
-}
 
 node {
-  calculator: "OpenCvVideoDecoderCalculator"
-  input_side_packet: "INPUT_FILE_PATH:input_video_path"
-  output_stream: "VIDEO:input_video_cpu"
+  calculator: "GpuBufferToImageFrameCalculator"
+  input_stream: "input_video_gpu"
+  output_stream: "input_video_cpu"
 }
-
 
 node {
   calculator: "PictureLocalizationCalculator"
   input_stream: "IMAGE:input_video_cpu"
-  output_stream: "IMAGE:cropped_image"
-} 
+  output_stream: "IMAGE:cropped_image" 
+}
 
-node: {
+node {
   calculator: "ImageTransformationCalculator"
   input_stream: "IMAGE:cropped_image"
-  output_stream: "IMAGE:transformed_input_video_cpu"
+  output_stream: "IMAGE:cropped_output_image"
+  node_options: {
+    [type.googleapis.com/mediapipe.ImageTransformationCalculatorOptions] {
+      output_width: 640
+      output_height: 480
+      scale_mode: FILL_AND_CROP
+    }
+  }
+}
+
+node: {
+  calculator: "ImageFrameToGpuBufferCalculator"
+  input_stream: "cropped_output_image"
+  output_stream: "output_video"
+}
+
+node {
+  calculator: "FlowLimiterCalculator"
+  input_stream: "cropped_output_image"
+  input_stream: "FINISHED:bytes"
+  input_stream_info: {
+    tag_index: "FINISHED"
+    back_edge: true
+  }
+  node_options: {
+    [type.googleapis.com/mediapipe.FlowLimiterCalculatorOptions] {
+      max_in_flight: 1
+    }
+  }
+  output_stream: "throttled_input_video_full"
+}
+
+node {
+  calculator: "ImageTransformationCalculator"
+  input_stream: "IMAGE:throttled_input_video_full"
+  output_stream: "IMAGE:throttled_input_video_2"
   node_options: {
     [type.googleapis.com/mediapipe.ImageTransformationCalculatorOptions] {
       output_width: 224
@@ -36,7 +68,7 @@ node: {
 
 node {
   calculator: "TfLiteConverterCalculator"
-  input_stream: "IMAGE:transformed_input_video_cpu"
+  input_stream: "IMAGE:throttled_input_video_2"
   output_stream: "TENSORS:cropped_image_tensor"
   options: {
     [mediapipe.TfLiteConverterCalculatorOptions.ext] {
@@ -45,31 +77,14 @@ node {
   }
 }
 
-
-node {
-  calculator: "FlowLimiterCalculator"
-  input_stream: "cropped_image_tensor"
-  input_stream: "FINISHED:bytes"
-  input_stream_info: {
-    tag_index: 'FINISHED'
-    back_edge: true
-  }
-  options : {
-    [mediapipe.FlowLimiterCalculatorOptions.ext] {
-      max_in_flight: 1
-    }
-  }
-  output_stream: "throttled_image_tensor"
-}
-
 node {
   calculator: "TfLiteInferenceCalculator"
-  input_stream: "TENSORS:throttled_image_tensor"
+  input_stream: "TENSORS:cropped_image_tensor"
   output_stream: "TENSORS:tensors"
   options: {
     [mediapipe.TfLiteInferenceCalculatorOptions.ext] {
-      model_path: "/mediapipe/mediapipe/graphs/custom/model.tflite"
-      delegate { xnnpack {} }
+      model_path: "assets/model.tflite"
+      delegate { gpu {} }
     }
   }
 }
@@ -79,4 +94,25 @@ node {
   input_stream: "TENSORS:tensors"
   output_stream: "FLOATS:bytes"
 }
-num_threads: 2
+
+node {
+  calculator: "FeatureDetection"
+  input_stream: "IMAGE:throttled_input_video_2"
+  output_stream: "FEATURES:feats"
+}
+
+node {
+  calculator: "PacketClonerCalculator"
+  input_stream: "TICK:query_feats"
+  input_stream: "feats"
+  input_stream: "query_feats"
+  output_stream: "cloned_feats"
+  output_stream: "cloned_query_feats"
+}
+
+node {
+  calculator: "RerankCalculator"
+  input_stream: "FEATURES:cloned_feats"
+  input_stream: "QFEATURES:cloned_query_feats"
+  output_stream: "RESULT:rr_index"
+}

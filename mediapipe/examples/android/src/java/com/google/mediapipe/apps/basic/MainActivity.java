@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.mediapipe.apps.basic;
 
 import android.content.pm.ApplicationInfo;
@@ -32,198 +31,427 @@ import com.google.mediapipe.components.ExternalTextureConverter;
 import com.google.mediapipe.components.FrameProcessor;
 import com.google.mediapipe.components.PermissionHelper;
 import com.google.mediapipe.framework.AndroidAssetUtil;
+import com.google.mediapipe.framework.PacketGetter;
 import com.google.mediapipe.glutil.EglManager;
+import android.widget.TextView;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+import java.io.IOException;
+import java.util.concurrent.TimeUnit;
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import com.google.mediapipe.framework.Packet;
 
-/** Main activity of MediaPipe basic app. */
+import android.widget.Button;
+
+/**
+ * Main activity of MediaPipe basic app.
+ */
 public class MainActivity extends AppCompatActivity {
-  private static final String TAG = "MainActivity";
 
-  // Flips the camera-preview frames vertically by default, before sending them into FrameProcessor
-  // to be processed in a MediaPipe graph, and flips the processed frames back when they are
-  // displayed. This maybe needed because OpenGL represents images assuming the image origin is at
-  // the bottom-left corner, whereas MediaPipe in general assumes the image origin is at the
-  // top-left corner.
-  // NOTE: use "flipFramesVertically" in manifest metadata to override this behavior.
-  private static final boolean FLIP_FRAMES_VERTICALLY = true;
+    private static final String TAG = "MainActivity";
 
-  // Number of output frames allocated in ExternalTextureConverter.
-  // NOTE: use "converterNumBuffers" in manifest metadata to override number of buffers. For
-  // example, when there is a FlowLimiterCalculator in the graph, number of buffers should be at
-  // least `max_in_flight + max_in_queue + 1` (where max_in_flight and max_in_queue are used in
-  // FlowLimiterCalculator options). That's because we need buffers for all the frames that are in
-  // flight/queue plus one for the next frame from the camera.
-  private static final int NUM_BUFFERS = 2;
+    // Flips the camera-preview frames vertically by default, before sending them
+    // into FrameProcessor
+    // to be processed in a MediaPipe graph, and flips the processed frames back
+    // when they are
+    // displayed. This maybe needed because OpenGL represents images assuming the
+    // image origin is at
+    // the bottom-left corner, whereas MediaPipe in general assumes the image origin
+    // is at the
+    // top-left corner.
+    // NOTE: use "flipFramesVertically" in manifest metadata to override this
+    // behavior.
+    private static final boolean FLIP_FRAMES_VERTICALLY = true;
 
-  static {
-    // Load all native libraries needed by the app.
-    System.loadLibrary("mediapipe_jni");
-    try {
-      System.loadLibrary("opencv_java3");
-    } catch (java.lang.UnsatisfiedLinkError e) {
-      // Some example apps (e.g. template matching) require OpenCV 4.
-      System.loadLibrary("opencv_java4");
+    // Number of output frames allocated in ExternalTextureConverter.
+    // NOTE: use "converterNumBuffers" in manifest metadata to override number of
+    // buffers. For
+    // example, when there is a FlowLimiterCalculator in the graph, number of
+    // buffers should be at
+    // least `max_in_flight + max_in_queue + 1` (where max_in_flight and
+    // max_in_queue are used in
+    // FlowLimiterCalculator options). That's because we need buffers for all the
+    // frames that are in
+    // flight/queue plus one for the next frame from the camera.
+    private static final int NUM_BUFFERS = 2;
+
+    static {
+        // Load all native libraries needed by the app.
+        System.loadLibrary("mediapipe_jni");
+        try {
+            System.loadLibrary("opencv_java3");
+        } catch (java.lang.UnsatisfiedLinkError e) {
+            // Some example apps (e.g. template matching) require OpenCV 4.
+            System.loadLibrary("opencv_java4");
+        }
     }
-  }
+    // Sends camera-preview frames into a MediaPipe graph for processing, and
+    // displays the processed
+    // frames onto a {@link Surface}.
+    protected FrameProcessor processor;
+    // Handles camera access via the {@link CameraX} Jetpack support library.
+    protected CameraXPreviewHelper cameraHelper;
 
-  // Sends camera-preview frames into a MediaPipe graph for processing, and displays the processed
-  // frames onto a {@link Surface}.
-  protected FrameProcessor processor;
-  // Handles camera access via the {@link CameraX} Jetpack support library.
-  protected CameraXPreviewHelper cameraHelper;
+    // {@link SurfaceTexture} where the camera-preview frames can be accessed.
+    private SurfaceTexture previewFrameTexture;
+    // {@link SurfaceView} that displays the camera-preview frames processed by a
+    // MediaPipe graph.
+    private SurfaceView previewDisplayView;
 
-  // {@link SurfaceTexture} where the camera-preview frames can be accessed.
-  private SurfaceTexture previewFrameTexture;
-  // {@link SurfaceView} that displays the camera-preview frames processed by a MediaPipe graph.
-  private SurfaceView previewDisplayView;
+    // Creates and manages an {@link EGLContext}.
+    private EglManager eglManager;
+    // Converts the GL_TEXTURE_EXTERNAL_OES texture from Android camera into a
+    // regular texture to be
+    // consumed by {@link FrameProcessor} and the underlying MediaPipe graph.
+    private ExternalTextureConverter converter;
 
-  // Creates and manages an {@link EGLContext}.
-  private EglManager eglManager;
-  // Converts the GL_TEXTURE_EXTERNAL_OES texture from Android camera into a regular texture to be
-  // consumed by {@link FrameProcessor} and the underlying MediaPipe graph.
-  private ExternalTextureConverter converter;
+    // ApplicationInfo for retrieving metadata defined in the manifest.
+    private ApplicationInfo applicationInfo;
 
-  // ApplicationInfo for retrieving metadata defined in the manifest.
-  private ApplicationInfo applicationInfo;
+    private TextView embeddingTextView;
 
-  @Override
-  protected void onCreate(Bundle savedInstanceState) {
-    super.onCreate(savedInstanceState);
-    setContentView(getContentViewLayoutResId());
+    private Boolean matchFound = false;
+    private Boolean processing = false;
+    private JSONArray imgIdx;
+    // private Packet featuresPacket;
+    private long currentFeatsTs;
 
-    try {
-      applicationInfo =
-          getPackageManager().getApplicationInfo(getPackageName(), PackageManager.GET_META_DATA);
-    } catch (NameNotFoundException e) {
-      Log.e(TAG, "Cannot find application info: " + e);
+    private static final String SERVER_ENDPOINT = "https://us-central1-development-382019.cloudfunctions.net/cloudscan";
+
+    private final Object lock = new Object();
+    private Button restartButton;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(getContentViewLayoutResId());
+
+        try {
+            applicationInfo = getPackageManager().getApplicationInfo(getPackageName(), PackageManager.GET_META_DATA);
+        } catch (NameNotFoundException e) {
+            Log.e(TAG, "Cannot find application info: " + e);
+        }
+
+        previewDisplayView = new SurfaceView(this);
+        setupPreviewDisplayView();
+
+        restartButton = findViewById(R.id.restart_button); // Get a reference to the button
+        restartButton.setOnClickListener(view -> restartDetection()); // Set click listener
+        // Initialize asset manager so that MediaPipe native libraries can access the
+        // app assets, e.g.,
+        // binary graphs.
+        embeddingTextView = findViewById(R.id.embedding_text);
+
+        AndroidAssetUtil.initializeNativeAssetManager(this);
+        eglManager = new EglManager(null);
+        processor = new FrameProcessor(
+                this,
+                eglManager.getNativeContext(),
+                applicationInfo.metaData.getString("binaryGraphName"),
+                applicationInfo.metaData.getString("inputVideoStreamName"),
+                applicationInfo.metaData.getString("outputVideoStreamName"));
+        processor
+                .getVideoSurfaceOutput()
+                .setFlipY(
+                        applicationInfo.metaData.getBoolean("flipFramesVertically", FLIP_FRAMES_VERTICALLY));
+
+        PermissionHelper.checkAndRequestCameraPermissions(this);
+
+        // Add packet callbacks for new outputs
+        processor.addPacketCallback(
+                "bytes",
+                (packet) -> {
+                    if (!matchFound && !processing) {
+                        float[] embeddingBytes = PacketGetter.getFloat32Vector(packet);
+                        sendEmbeddingToServer(embeddingBytes);
+                        currentFeatsTs = packet.getTimestamp();
+                        updateView("reranking...");
+                    }
+                });
+
+        // processor.addPacketCallback(
+        //     "rr_index",
+        //     (packet) -> {
+        //       int index = PacketGetter.getInt32(packet);
+        //       if (index != -1){
+        //         matchFound = true;
+        //         Log.d(TAG, "rr_index" + String.valueOf(index));
+        //         updateView("Match found: " + imgIdx.optString(index));
+        //       }else{
+        //         processing = false;
+        //         matchFound = false;
+        //       }
+        //     });
+        processor.addPacketCallback(
+                "rr_index",
+                (packet) -> {
+                    updateView("reranked!");
+                    int index = PacketGetter.getInt32(packet);
+                    if (index != -1) {
+                        updateView(String.valueOf(index));
+                        matchFound = true;
+                        Log.d(TAG, "rr_index" + String.valueOf(index));
+                        // Access imgIdx here to retrieve the image name
+                        if (imgIdx != null && index >= 0 && index < imgIdx.length()) {
+                            updateView("Match found: " + imgIdx.optString(index));
+                        } else {
+                            Log.e(TAG, "Invalid index: " + index);
+                        }
+                    } else {
+                        processing = false;
+                        matchFound = false;
+                    }
+                });
     }
 
-    previewDisplayView = new SurfaceView(this);
-    setupPreviewDisplayView();
-
-    // Initialize asset manager so that MediaPipe native libraries can access the app assets, e.g.,
-    // binary graphs.
-    AndroidAssetUtil.initializeNativeAssetManager(this);
-    eglManager = new EglManager(null);
-    processor =
-        new FrameProcessor(
-            this,
-            eglManager.getNativeContext(),
-            applicationInfo.metaData.getString("binaryGraphName"),
-            applicationInfo.metaData.getString("inputVideoStreamName"),
-            applicationInfo.metaData.getString("outputVideoStreamName"));
-    processor
-        .getVideoSurfaceOutput()
-        .setFlipY(
-            applicationInfo.metaData.getBoolean("flipFramesVertically", FLIP_FRAMES_VERTICALLY));
-
-    PermissionHelper.checkAndRequestCameraPermissions(this);
-  }
-
-  // Used to obtain the content view for this application. If you are extending this class, and
-  // have a custom layout, override this method and return the custom layout.
-  protected int getContentViewLayoutResId() {
-    return R.layout.activity_main;
-  }
-
-  @Override
-  protected void onResume() {
-    super.onResume();
-    converter =
-        new ExternalTextureConverter(
-            eglManager.getContext(),
-            applicationInfo.metaData.getInt("converterNumBuffers", NUM_BUFFERS));
-    converter.setFlipY(
-        applicationInfo.metaData.getBoolean("flipFramesVertically", FLIP_FRAMES_VERTICALLY));
-    converter.setConsumer(processor);
-    if (PermissionHelper.cameraPermissionsGranted(this)) {
-      startCamera();
+    // Used to obtain the content view for this application. If you are extending
+    // this class, and
+    // have a custom layout, override this method and return the custom layout.
+    protected int getContentViewLayoutResId() {
+        return R.layout.activity_main;
     }
-  }
 
-  @Override
-  protected void onPause() {
-    super.onPause();
-    converter.close();
+    @Override
+    protected void onResume() {
+        super.onResume();
+        converter = new ExternalTextureConverter(
+                eglManager.getContext(),
+                applicationInfo.metaData.getInt("converterNumBuffers", NUM_BUFFERS));
+        converter.setFlipY(
+                applicationInfo.metaData.getBoolean("flipFramesVertically", FLIP_FRAMES_VERTICALLY));
+        converter.setConsumer(processor);
+        if (PermissionHelper.cameraPermissionsGranted(this)) {
+            startCamera();
+        }
+    }
 
-    // Hide preview display until we re-open the camera again.
-    previewDisplayView.setVisibility(View.GONE);
-  }
+    @Override
+    protected void onPause() {
+        super.onPause();
+        converter.close();
+        // Hide preview display until we re-open the camera again.
+        previewDisplayView.setVisibility(View.GONE);
+    }
 
-  @Override
-  public void onRequestPermissionsResult(
-      int requestCode, String[] permissions, int[] grantResults) {
-    super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-    PermissionHelper.onRequestPermissionsResult(requestCode, permissions, grantResults);
-  }
+    @Override
+    public void onRequestPermissionsResult(
+            int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        PermissionHelper.onRequestPermissionsResult(requestCode, permissions, grantResults);
+    }
 
-  protected void onCameraStarted(SurfaceTexture surfaceTexture) {
-    previewFrameTexture = surfaceTexture;
-    // Make the display view visible to start showing the preview. This triggers the
-    // SurfaceHolder.Callback added to (the holder of) previewDisplayView.
-    previewDisplayView.setVisibility(View.VISIBLE);
-  }
+    protected void onCameraStarted(SurfaceTexture surfaceTexture) {
+        previewFrameTexture = surfaceTexture;
+        // Make the display view visible to start showing the preview. This triggers the
+        // SurfaceHolder.Callback added to (the holder of) previewDisplayView.
+        previewDisplayView.setVisibility(View.VISIBLE);
+    }
 
-  protected Size cameraTargetResolution() {
-    return null; // No preference and let the camera (helper) decide.
-  }
+    protected Size cameraTargetResolution() {
+        return null; // No preference and let the camera (helper) decide.
+    }
 
-  public void startCamera() {
-    cameraHelper = new CameraXPreviewHelper();
-    previewFrameTexture = converter.getSurfaceTexture();
-    cameraHelper.setOnCameraStartedListener(
-        surfaceTexture -> {
-          onCameraStarted(surfaceTexture);
-        });
-    CameraHelper.CameraFacing cameraFacing =
-        applicationInfo.metaData.getBoolean("cameraFacingFront", false)
-            ? CameraHelper.CameraFacing.FRONT
-            : CameraHelper.CameraFacing.BACK;
-    cameraHelper.startCamera(
-        this, cameraFacing, previewFrameTexture, cameraTargetResolution());
-  }
+    public void startCamera() {
+        cameraHelper = new CameraXPreviewHelper();
+        previewFrameTexture = converter.getSurfaceTexture();
+        cameraHelper.setOnCameraStartedListener(
+                surfaceTexture -> {
+                    onCameraStarted(surfaceTexture);
+                });
+        CameraHelper.CameraFacing cameraFacing = applicationInfo.metaData.getBoolean("cameraFacingFront", false)
+                ? CameraHelper.CameraFacing.FRONT
+                : CameraHelper.CameraFacing.BACK;
+        cameraHelper.startCamera(
+                this, cameraFacing, previewFrameTexture, cameraTargetResolution());
+    }
 
-  protected Size computeViewSize(int width, int height) {
-    return new Size(width, height);
-  }
+    protected Size computeViewSize(int width, int height) {
+        return new Size(width, height);
+    }
 
-  protected void onPreviewDisplaySurfaceChanged(
-      SurfaceHolder holder, int format, int width, int height) {
-    // (Re-)Compute the ideal size of the camera-preview display (the area that the
-    // camera-preview frames get rendered onto, potentially with scaling and rotation)
-    // based on the size of the SurfaceView that contains the display.
-    Size viewSize = computeViewSize(width, height);
-    Size displaySize = cameraHelper.computeDisplaySizeFromViewSize(viewSize);
-    boolean isCameraRotated = cameraHelper.isCameraRotated();
+    protected void onPreviewDisplaySurfaceChanged(
+            SurfaceHolder holder, int format, int width, int height) {
+        // (Re-)Compute the ideal size of the camera-preview display (the area that the
+        // camera-preview frames get rendered onto, potentially with scaling and
+        // rotation)
+        // based on the size of the SurfaceView that contains the display.
+        Size viewSize = computeViewSize(width, height);
+        Size displaySize = cameraHelper.computeDisplaySizeFromViewSize(viewSize);
+        boolean isCameraRotated = cameraHelper.isCameraRotated();
 
-    // Configure the output width and height as the computed display size.
-    converter.setDestinationSize(
-        isCameraRotated ? displaySize.getHeight() : displaySize.getWidth(),
-        isCameraRotated ? displaySize.getWidth() : displaySize.getHeight());
-  }
+        // Configure the output width and height as the computed display size.
+        converter.setDestinationSize(
+                isCameraRotated ? displaySize.getHeight() : displaySize.getWidth(),
+                isCameraRotated ? displaySize.getWidth() : displaySize.getHeight());
+    }
 
-  private void setupPreviewDisplayView() {
-    previewDisplayView.setVisibility(View.GONE);
-    ViewGroup viewGroup = findViewById(R.id.preview_display_layout);
-    viewGroup.addView(previewDisplayView);
+    private void setupPreviewDisplayView() {
+        previewDisplayView.setVisibility(View.GONE);
+        ViewGroup viewGroup = findViewById(R.id.preview_display_layout);
+        viewGroup.addView(previewDisplayView);
 
-    previewDisplayView
-        .getHolder()
-        .addCallback(
-            new SurfaceHolder.Callback() {
-              @Override
-              public void surfaceCreated(SurfaceHolder holder) {
-                processor.getVideoSurfaceOutput().setSurface(holder.getSurface());
-              }
+        previewDisplayView
+                .getHolder()
+                .addCallback(
+                        new SurfaceHolder.Callback() {
+                    @Override
+                    public void surfaceCreated(SurfaceHolder holder) {
+                        processor.getVideoSurfaceOutput().setSurface(holder.getSurface());
+                    }
 
-              @Override
-              public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-                onPreviewDisplaySurfaceChanged(holder, format, width, height);
-              }
+                    @Override
+                    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+                        onPreviewDisplaySurfaceChanged(holder, format, width, height);
+                    }
 
-              @Override
-              public void surfaceDestroyed(SurfaceHolder holder) {
-                processor.getVideoSurfaceOutput().setSurface(null);
-              }
+                    @Override
+                    public void surfaceDestroyed(SurfaceHolder holder) {
+                        processor.getVideoSurfaceOutput().setSurface(null);
+                    }
+                });
+    }
+
+    // Send the embedding to the server
+    private void sendEmbeddingToServer(float[] embeddingBytes) {
+        synchronized (lock) {
+            if (processing) {
+                // If a request is already in flight, return without sending another
+                Log.d(TAG, "Another request is in progress, skipping this one.");
+                return;
+            }
+
+            processing = true;
+        }
+
+        OkHttpClient client = new OkHttpClient.Builder()
+                .connectTimeout(1, TimeUnit.SECONDS)
+                .readTimeout(1, TimeUnit.SECONDS)
+                .build();
+
+        try {
+            // Convert float array to byte array
+            ByteBuffer byteBuffer = ByteBuffer.allocate(embeddingBytes.length * 4); // 4 bytes per float
+            byteBuffer.order(ByteOrder.nativeOrder()); // Use the native byte order
+            for (float value : embeddingBytes) {
+                byteBuffer.putFloat(value);
+            }
+            byte[] embeddingByteArray = byteBuffer.array();
+
+            // Create the request
+            RequestBody body = RequestBody.create(MediaType.parse("application/octet-stream"), embeddingByteArray);
+            Request request = new Request.Builder()
+                    .url(SERVER_ENDPOINT)
+                    .post(body)
+                    .build();
+
+            // Send the request
+            processing = true;
+            client.newCall(request).enqueue(new Callback() {
+                @Override
+                public void onFailure(Call call, IOException e) {
+                    synchronized (lock) {
+                        processing = false;
+                    }
+                    Log.e(TAG, "Error sending embedding to server: " + e.getMessage());
+                }
+
+                @Override
+                public void onResponse(Call call, Response response) {
+                    try {
+                        if (response.isSuccessful()) {
+                            String responseBody = response.body().string();
+                            Log.d(TAG, "Response" + responseBody);
+                            JSONObject Jobject = new JSONObject(responseBody);
+                            JSONArray images = Jobject.getJSONArray("images");
+                            updateView("Response: " + images.toString());
+                            if (images.length() == 0) {
+                                Log.e(TAG, "No images returned from server");
+                                synchronized (lock) {
+                                    processing = false;
+                                }
+                                return;
+                            }
+                            JSONArray features = Jobject.getJSONArray("features");
+                            Packet qfeaturesPacket = createQueryFeaturesPacket(features);
+
+                            synchronized (lock) {
+                                imgIdx = images; // Store the image names in the synchronized block
+                                processing = false;
+                            }
+
+                            if (features.length() == 0) {
+                                Log.e(TAG, "No features returned from server");
+                                return;
+                            } else {
+                                imgIdx = images;
+                                // processor.getGraph().addPacketToInputStream("match_feats", featuresPacket, inputTs);
+                                processor.getGraph().addPacketToInputStream("query_feats", qfeaturesPacket, currentFeatsTs);
+
+                            }
+                        } else {
+                            Log.e(TAG, "Server returned an error: " + response.code());
+                            synchronized (lock) {
+                                processing = false;
+                            }
+                        }
+                    } catch (JSONException e) {
+                        Log.e(TAG, "Error reading server response: " + e.getMessage());
+                        synchronized (lock) {
+                            processing = false;
+                        }
+                    } catch (IOException e) {
+                        Log.e(TAG, "Error reading server response: " + e.getMessage());
+                        synchronized (lock) {
+                            processing = false;
+                        }
+                    }
+                }
             });
-  }
+        } catch (Exception e) {
+            Log.e(TAG, "Error creating JSON payload: " + e.getMessage());
+            synchronized (lock) {
+                processing = false;
+            }
+        }
+    }
+
+    private Packet createQueryFeaturesPacket(JSONArray queryFeatures) {
+        if (queryFeatures == null || queryFeatures.length() == 0) {
+            return null; // No features to send
+        }
+        // Join the array of strings into a single string, separated by a delimiter
+
+        try {
+            String joinedFeatures = queryFeatures.join("|");
+            return processor.getPacketCreator().createString(joinedFeatures);
+        } catch (JSONException e) {
+            Log.e(TAG, "Error creating query features packet: " + e.getMessage());
+            return null;
+        }
+    }
+
+    private void updateView(final String text) {
+        runOnUiThread(() -> {
+            embeddingTextView.setText(text);
+        });
+    }
+
+    private void restartDetection() {
+        synchronized (lock) {
+            matchFound = false;
+            processing = false;
+            imgIdx = null;
+            // Add any other logic needed to reset your detection pipeline
+        }
+        updateView("Detection restarted"); // Update the UI
+    }
 }
