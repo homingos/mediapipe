@@ -48,9 +48,14 @@ import okhttp3.RequestBody;
 import okhttp3.Response;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.sql.Time;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import com.google.mediapipe.framework.Packet;
-
+import java.util.concurrent.locks.ReentrantLock;
 import android.widget.Button;
+import android.graphics.Bitmap;
+import com.google.mediapipe.apps.basic.ImageRetriever;
 
 /**
  * Main activity of MediaPipe basic app.
@@ -119,16 +124,18 @@ public class MainActivity extends AppCompatActivity {
 
     private TextView embeddingTextView;
 
-    private Boolean matchFound = false;
-    private Boolean processing = false;
+    private volatile boolean matchFound = false;
+    private volatile boolean processing = false;
     private JSONArray imgIdx;
     // private Packet featuresPacket;
     private long currentFeatsTs;
 
     private static final String SERVER_ENDPOINT = "https://us-central1-development-382019.cloudfunctions.net/cloudscan";
-
-    private final Object lock = new Object();
+    private final ExecutorService executorService = Executors.newSingleThreadExecutor();
+    private final ReentrantLock processingLock = new ReentrantLock();
+    private OkHttpClient httpClient = new OkHttpClient.Builder().connectTimeout(1, TimeUnit.SECONDS).readTimeout(1, TimeUnit.SECONDS).build();
     private Button restartButton;
+    private ImageRetriever imageRetriever;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -166,6 +173,21 @@ public class MainActivity extends AppCompatActivity {
 
         PermissionHelper.checkAndRequestCameraPermissions(this);
 
+        imageRetriever = new ImageRetriever(new ImageRetriever.ImageCallback() {
+            @Override
+            public void onImageRetrieved(Bitmap bitmap) {
+                // Handle the retrieved Bitmap here
+                if (bitmap != null) {
+                    // Handle the case where the image retrieval was successful
+                    updateView("Image download successful");
+                } else {
+                    // Handle the case where the image retrieval failed
+                    updateView("Image download failed");
+                    Log.e(TAG, "Image retrieval failed");
+                }
+            }
+        });
+
         // Add packet callbacks for new outputs
         processor.addPacketCallback(
                 "bytes",
@@ -173,42 +195,28 @@ public class MainActivity extends AppCompatActivity {
                     if (!matchFound && !processing) {
                         float[] embeddingBytes = PacketGetter.getFloat32Vector(packet);
                         sendEmbeddingToServer(embeddingBytes);
-                        currentFeatsTs = packet.getTimestamp();
-                        updateView("reranking...");
+                        processingLock.lock();
+                        try {
+                            currentFeatsTs = packet.getTimestamp();
+                        } finally {
+                            processingLock.unlock();
+                        }
                     }
                 });
 
-        // processor.addPacketCallback(
-        //     "rr_index",
-        //     (packet) -> {
-        //       int index = PacketGetter.getInt32(packet);
-        //       if (index != -1){
-        //         matchFound = true;
-        //         Log.d(TAG, "rr_index" + String.valueOf(index));
-        //         updateView("Match found: " + imgIdx.optString(index));
-        //       }else{
-        //         processing = false;
-        //         matchFound = false;
-        //       }
-        //     });
         processor.addPacketCallback(
                 "rr_index",
                 (packet) -> {
-                    updateView("reranked!");
                     int index = PacketGetter.getInt32(packet);
-                    if (index != -1) {
-                        updateView(String.valueOf(index));
-                        matchFound = true;
-                        Log.d(TAG, "rr_index" + String.valueOf(index));
-                        // Access imgIdx here to retrieve the image name
-                        if (imgIdx != null && index >= 0 && index < imgIdx.length()) {
+                    if (index < imgIdx.length() && !matchFound && imgIdx != null && index >= 0) {
+                        processingLock.lock();
+                        try {
+                            matchFound = true;
                             updateView("Match found: " + imgIdx.optString(index));
-                        } else {
-                            Log.e(TAG, "Invalid index: " + index);
+                            imageRetriever.execute(imgIdx.optString(index));
+                        } finally {
+                            processingLock.unlock();
                         }
-                    } else {
-                        processing = false;
-                        matchFound = false;
                     }
                 });
     }
@@ -322,106 +330,121 @@ public class MainActivity extends AppCompatActivity {
 
     // Send the embedding to the server
     private void sendEmbeddingToServer(float[] embeddingBytes) {
-        synchronized (lock) {
-            if (processing) {
-                // If a request is already in flight, return without sending another
-                Log.d(TAG, "Another request is in progress, skipping this one.");
-                return;
-            }
-
-            processing = true;
-        }
-
-        OkHttpClient client = new OkHttpClient.Builder()
-                .connectTimeout(1, TimeUnit.SECONDS)
-                .readTimeout(1, TimeUnit.SECONDS)
-                .build();
-
-        try {
-            // Convert float array to byte array
-            ByteBuffer byteBuffer = ByteBuffer.allocate(embeddingBytes.length * 4); // 4 bytes per float
-            byteBuffer.order(ByteOrder.nativeOrder()); // Use the native byte order
-            for (float value : embeddingBytes) {
-                byteBuffer.putFloat(value);
-            }
-            byte[] embeddingByteArray = byteBuffer.array();
-
-            // Create the request
-            RequestBody body = RequestBody.create(MediaType.parse("application/octet-stream"), embeddingByteArray);
-            Request request = new Request.Builder()
-                    .url(SERVER_ENDPOINT)
-                    .post(body)
-                    .build();
-
-            // Send the request
-            processing = true;
-            client.newCall(request).enqueue(new Callback() {
-                @Override
-                public void onFailure(Call call, IOException e) {
-                    synchronized (lock) {
-                        processing = false;
+        executorService.submit(() -> {
+            try {
+                processingLock.lock();
+                try {
+                    if (processing) {
+                        updateView("Processing...");
+                        processingLock.unlock();
+                        return;
                     }
-                    Log.e(TAG, "Error sending embedding to server: " + e.getMessage());
+                    processing = true;
+                } finally {
+                    processingLock.unlock();
                 }
+                // Convert float array to byte array
+                ByteBuffer byteBuffer = ByteBuffer.allocate(embeddingBytes.length * 4); // 4 bytes per float
+                byteBuffer.order(ByteOrder.nativeOrder()); // Use the native byte order
+                for (float value : embeddingBytes) {
+                    byteBuffer.putFloat(value);
+                }
+                byte[] embeddingByteArray = byteBuffer.array();
 
-                @Override
-                public void onResponse(Call call, Response response) {
-                    try {
-                        if (response.isSuccessful()) {
-                            String responseBody = response.body().string();
-                            Log.d(TAG, "Response" + responseBody);
-                            JSONObject Jobject = new JSONObject(responseBody);
-                            JSONArray images = Jobject.getJSONArray("images");
-                            updateView("Response: " + images.toString());
-                            if (images.length() == 0) {
-                                Log.e(TAG, "No images returned from server");
-                                synchronized (lock) {
-                                    processing = false;
+                // Create the request
+                RequestBody body = RequestBody.create(MediaType.parse("application/octet-stream"), embeddingByteArray);
+                Request request = new Request.Builder()
+                        .url(SERVER_ENDPOINT)
+                        .post(body)
+                        .build();
+
+                // Send the request
+                updateView("Detecting...");
+                httpClient.newCall(request).enqueue(new Callback() {
+                    @Override
+                    public void onFailure(Call call, IOException e) {
+                        processingLock.lock();
+                        try {
+                            processing = false;
+                        } finally {
+                            processingLock.unlock();
+                        }
+                        Log.e(TAG, "Error sending embedding to server: " + e.getMessage());
+                    }
+
+                    @Override
+                    public void onResponse(Call call, Response response) {
+                        try {
+                            if (response.isSuccessful()) {
+                                String responseBody = response.body().string();
+                                JSONObject Jobject = new JSONObject(responseBody);
+                                JSONArray images = Jobject.getJSONArray("images");
+                                if (images.length() == 0) {
+                                    Log.e(TAG, "No images returned from server");
+                                    updateView("No detections");
+                                    processingLock.lock();
+                                    try {
+                                        processing = false;
+                                    } finally {
+                                        processingLock.unlock();
+                                    }
+                                    return;
                                 }
-                                return;
-                            }
-                            JSONArray features = Jobject.getJSONArray("features");
-                            Packet qfeaturesPacket = createQueryFeaturesPacket(features);
 
-                            synchronized (lock) {
-                                imgIdx = images; // Store the image names in the synchronized block
-                                processing = false;
-                            }
+                                JSONArray features = Jobject.getJSONArray("features");
 
-                            if (features.length() == 0) {
-                                Log.e(TAG, "No features returned from server");
-                                return;
+                                if (features.length() == 0) {
+                                    Log.e(TAG, "No features returned from server");
+                                    return;
+                                } else {
+                                    processingLock.lock();
+                                    try {
+                                        imgIdx = images;
+                                        processing = false;
+                                    } finally {
+                                        processingLock.unlock();
+                                    }
+                                    processor.getGraph().addPacketToInputStream("query_feats", createQueryFeaturesPacket(features), currentFeatsTs);
+                                }
                             } else {
-                                imgIdx = images;
-                                // processor.getGraph().addPacketToInputStream("match_feats", featuresPacket, inputTs);
-                                processor.getGraph().addPacketToInputStream("query_feats", qfeaturesPacket, currentFeatsTs);
-
+                                Log.e(TAG, "Server returned an error: " + response.code());
+                                processingLock.lock();
+                                try {
+                                    processing = false;
+                                } finally {
+                                    processingLock.unlock();
+                                }
                             }
-                        } else {
-                            Log.e(TAG, "Server returned an error: " + response.code());
-                            synchronized (lock) {
+                        } catch (JSONException e) {
+                            Log.e(TAG, "Error reading server response: " + e.getMessage());
+                            processingLock.lock();
+                            try {
                                 processing = false;
+                            } finally {
+                                processingLock.unlock();
                             }
-                        }
-                    } catch (JSONException e) {
-                        Log.e(TAG, "Error reading server response: " + e.getMessage());
-                        synchronized (lock) {
-                            processing = false;
-                        }
-                    } catch (IOException e) {
-                        Log.e(TAG, "Error reading server response: " + e.getMessage());
-                        synchronized (lock) {
-                            processing = false;
+                        } catch (IOException e) {
+                            Log.e(TAG, "Error reading server response: " + e.getMessage());
+                            processingLock.lock();
+                            try {
+                                processing = false;
+                            } finally {
+                                processingLock.unlock();
+                            }
                         }
                     }
+                });
+            } catch (Exception e) {
+                Log.e(TAG, "Error creating JSON payload: " + e.getMessage());
+            } finally {
+                processingLock.lock();
+                try {
+                    processing = false;
+                } finally {
+                    processingLock.unlock();
                 }
-            });
-        } catch (Exception e) {
-            Log.e(TAG, "Error creating JSON payload: " + e.getMessage());
-            synchronized (lock) {
-                processing = false;
             }
-        }
+        });
     }
 
     private Packet createQueryFeaturesPacket(JSONArray queryFeatures) {
@@ -446,11 +469,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void restartDetection() {
-        synchronized (lock) {
+        processingLock.lock();
+        try {
             matchFound = false;
             processing = false;
-            imgIdx = null;
-            // Add any other logic needed to reset your detection pipeline
+            // imgIdx = null;
+        } finally {
+            processingLock.unlock();
         }
         updateView("Detection restarted"); // Update the UI
     }

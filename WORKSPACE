@@ -1,8 +1,4 @@
 workspace(name = "mediapipe")
-
-android_sdk_repository(name = "androidsdk", path = "/root/Android/Sdk")
-android_ndk_repository(name = "androidndk", api_level=21, path = "/root/Android/Sdk/ndk-bundle/android-ndk-r21")
-
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 # Protobuf expects an //external:python_headers target
 bind(
@@ -388,13 +384,13 @@ new_local_repository(
     # For local MacOS builds, the path should point to an opencv@3 installation.
     # If you edit the path here, you will also need to update the corresponding
     # prefix in "opencv_macos.BUILD".
-    path = "/usr/local",  # e.g. /usr/local/Cellar for HomeBrew
+    path = "/opt/homebrew/Cellar",  # e.g. /usr/local/Cellar for HomeBrew
 )
 
 new_local_repository(
     name = "macos_ffmpeg",
     build_file = "@//third_party:ffmpeg_macos.BUILD",
-    path = "/usr/local/opt/ffmpeg",
+    path = "/opt/homebrew/Cellar/ffmpeg@6/6.1.1_2",
 )
 
 new_local_repository(
@@ -407,6 +403,7 @@ http_archive(
     name = "android_opencv",
     build_file = "@//third_party:opencv_android.BUILD",
     strip_prefix = "OpenCV-android-sdk",
+    sha256 = "cd7e5d5ec76eeddadf36a1cfe5197129328e80287d4d198c169e090421f838ba",
     type = "zip",
     url = "https://github.com/opencv/opencv/releases/download/4.0.1/opencv-4.0.1-android-sdk.zip",
 )
@@ -683,3 +680,5 @@ http_archive(
     urls = ["https://github.com/nlohmann/json/releases/download/v3.9.1/include.zip"],
     build_file = "@//third_party:nlohmann.BUILD",
 )
+android_sdk_repository(name = "androidsdk", path = "/Users/debadityasen/Android/Sdk")
+android_ndk_repository(name = "androidndk", api_level=21, path = "/Users/debadityasen/Android/Sdk/ndk-bundle/android-ndk-r21")

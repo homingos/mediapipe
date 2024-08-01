@@ -1,5 +1,6 @@
 input_stream: "input_video_gpu"
 input_stream: "query_feats"
+input_stream: "match_image"
 output_stream: "output_video"
 output_stream: "bytes"
 output_stream: "rr_index"
@@ -15,31 +16,25 @@ node {
 node {
   calculator: "PictureLocalizationCalculator"
   input_stream: "IMAGE:input_video_cpu"
-  output_stream: "IMAGE:cropped_image" 
+  output_stream: "IMAGE:localized_frame" 
 }
 
 node {
   calculator: "ImageTransformationCalculator"
-  input_stream: "IMAGE:cropped_image"
-  output_stream: "IMAGE:cropped_output_image"
+  input_stream: "IMAGE:localized_frame"
+  output_stream: "IMAGE:resized_frame"
   node_options: {
     [type.googleapis.com/mediapipe.ImageTransformationCalculatorOptions] {
       output_width: 640
       output_height: 480
-      scale_mode: FILL_AND_CROP
+      scale_mode: FIT
     }
   }
 }
 
-node: {
-  calculator: "ImageFrameToGpuBufferCalculator"
-  input_stream: "cropped_output_image"
-  output_stream: "output_video"
-}
-
 node {
   calculator: "FlowLimiterCalculator"
-  input_stream: "cropped_output_image"
+  input_stream: "localized_frame"
   input_stream: "FINISHED:bytes"
   input_stream_info: {
     tag_index: "FINISHED"
@@ -97,7 +92,7 @@ node {
 
 node {
   calculator: "FeatureDetection"
-  input_stream: "IMAGE:throttled_input_video_2"
+  input_stream: "IMAGE:resized_frame"
   output_stream: "FEATURES:feats"
 }
 
@@ -115,4 +110,54 @@ node {
   input_stream: "FEATURES:cloned_feats"
   input_stream: "QFEATURES:cloned_query_feats"
   output_stream: "RESULT:rr_index"
+}
+
+node {
+  calculator: "PreviousLoopbackCalculator"
+  input_stream: "MAIN:throttled_input_video_cpu"
+  input_stream: "LOOP:loop_output"
+  input_stream_info: { tag_index: 'LOOP' back_edge: true }
+  output_stream: "PREV_LOOP:loop_match_image"
+}
+
+node {
+  calculator: "FlowLimiterCalculator"
+  input_stream: "input_video_cpu"
+  input_stream: "FINISHED:overlayed_frame"
+  input_stream_info: {
+    tag_index: "FINISHED"
+    back_edge: true
+  }
+  node_options: {
+    [type.googleapis.com/mediapipe.FlowLimiterCalculatorOptions] {
+      max_in_flight: 1
+    }
+  }
+  output_stream: "throttled_input_video_cpu"
+}
+
+node {
+  calculator: "PacketClonerCalculator"
+  input_stream: "TICK:throttled_input_video_cpu"
+  input_stream: "match_image"
+  output_stream: "cloned_match_image"
+}
+
+
+node: {
+  calculator: "ImageOverlayCalculator"
+  input_stream: "PRIMARY_IMAGE:throttled_input_video_cpu"
+  input_stream: "SECONDARY_IMAGE:cloned_match_image"
+  input_stream: "LOOP_IMAGE:loop_match_image"
+  output_stream: "OVERLAYED_IMAGE:overlayed_frame"
+  output_stream: "SECONDARY_IMAGE_LOOP:loop_output"
+  input_stream_handler {
+    input_stream_handler: "ImmediateInputStreamHandler"
+  }
+}
+
+node: {
+  calculator: "ImageFrameToGpuBufferCalculator"
+  input_stream: "overlayed_frame"
+  output_stream: "output_video"
 }

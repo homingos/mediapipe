@@ -1,9 +1,7 @@
 #include "mediapipe/framework/calculator_framework.h"
 #include "mediapipe/framework/formats/image_frame.h"
 #include "mediapipe/framework/formats/image_frame_opencv.h"
-#include "mediapipe/framework/formats/landmark.pb.h"
 #include "mediapipe/framework/formats/video_stream_header.h"
-#include "mediapipe/framework/port/logging.h"
 #include "mediapipe/framework/port/opencv_core_inc.h"
 #include "mediapipe/framework/port/opencv_features2d_inc.h"
 #include "mediapipe/framework/port/opencv_imgproc_inc.h"
@@ -41,6 +39,7 @@ namespace mediapipe
         absl::Status Open(CalculatorContext *cc) override
         {
             cc->SetOffset(TimestampDiff(0));
+            matcher_ = cv::makePtr<cv::FlannBasedMatcher>(cv::makePtr<cv::flann::LshIndexParams>(12, 20, 2));
             return absl::OkStatus();
         }
 
@@ -56,25 +55,34 @@ namespace mediapipe
             const cv::Mat &features = cc->Inputs().Tag("FEATURES").Get<cv::Mat>();
             const std::string &qfeaturesstring = cc->Inputs().Tag("QFEATURES").Get<std::string>();
             const std::vector<std::string> &qfeatures = splitQueryFeatures(qfeaturesstring);
+            std::vector<int> match_counts(qfeatures.size(), -1);
 
-            cv::BFMatcher bf_matcher_;
-            std::vector<int> match_counts(qfeatures.size(), 0);
             // Process each query image
-            int selectionIndex = 0;
-            for (const auto &encoded_descriptor : qfeatures)
+            for (int selectionIndex = 0; selectionIndex < qfeatures.size(); ++selectionIndex)
             {
+                const auto &encoded_descriptor = qfeatures[selectionIndex];
+
                 // Deserialize query features for this image
-                cv::Mat query_descriptors = deserialize_orb_descriptors(encoded_descriptor);
+                cv::Mat query_descriptors;
+                try
+                {
+                    query_descriptors = deserialize_orb_descriptors(encoded_descriptor);
+                }
+                catch (const std::runtime_error &e)
+                {
+                    LOG(ERROR) << "Failed to deserialize ORB descriptors: " << e.what();
+                    return absl::InternalError("Failed to deserialize ORB descriptors.");
+                }
 
                 // Perform matching
                 std::vector<std::vector<cv::DMatch>> matches;
-                bf_matcher_.knnMatch(query_descriptors, features, matches, 2); // k=2 for ratio test
+                matcher_->knnMatch(query_descriptors, features, matches, 2); // k=2 for ratio test
 
                 // Apply ratio test and count matches
                 int localMatchCount = 0;
                 for (const auto &match : matches)
                 {
-                    if (match.size() == 2 && match[0].distance < 0.75 * match[1].distance)
+                    if (match.size() == 2 && match[0].distance < 0.7f * match[1].distance)
                     {
                         localMatchCount++;
                     }
@@ -84,7 +92,7 @@ namespace mediapipe
 
             // Find the index with the maximum match count
             int max_index = -1;
-            int max_count = 20;
+            int max_count = 10;
             for (int i = 0; i < match_counts.size(); ++i)
             {
                 if (match_counts[i] > max_count)
@@ -102,7 +110,8 @@ namespace mediapipe
         }
 
     private:
-        std::vector<uint8_t> base64_decode(const std::string &encoded_string)
+        cv::Ptr<cv::FlannBasedMatcher> matcher_;
+        std::vector<uint8_t> base64_decode_custom(const std::string &encoded_string)
         {
             const std::string base64_chars =
                 "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -154,22 +163,81 @@ namespace mediapipe
             return ret;
         }
 
-        cv::Mat deserialize_orb_descriptors(const std::string &encoded_descriptors)
+        cv::Mat deserialize_orb_descriptors(const std::string &base64_str)
         {
-            // Decode base64 string
-            std::vector<uint8_t> descriptor_data = base64_decode(encoded_descriptors);
+            // Decode from base64
+            // std::string decoded_string = base64_decode(base64_str);
+            // uint32_t rows, cols, type;
+            // std::memcpy(&rows, decoded.data(), sizeof(uint32_t));
+            // std::memcpy(&cols, decoded.data() + sizeof(uint32_t), sizeof(uint32_t));
+            // std::memcpy(&type, decoded.data() + 2 * sizeof(uint32_t), sizeof(uint32_t));
 
-            // Determine the number of descriptors and descriptor size
-            // ORB descriptors are typically 32 bytes each
-            int descriptor_size = 32;
-            int num_descriptors = descriptor_data.size() / descriptor_size;
+            // // Create cv::Mat and copy data
+            // cv::Mat descriptors(rows, cols, CV_8U);
+            // std::memcpy(descriptors.data, decoded.data() + 3 * sizeof(uint32_t), rows * cols * type);
 
-            // Create cv::Mat and copy data
-            cv::Mat descriptors(num_descriptors, descriptor_size, CV_8U);
-            std::memcpy(descriptors.data, descriptor_data.data(), descriptor_data.size());
+            // return descriptors;
+            std::vector<uint8_t> decoded = base64_decode_custom(base64_str);
 
-            return descriptors;
+            // Extract header information (rows, cols, type)
+            const uint8_t *data = decoded.data();
+            uint32_t rows = *reinterpret_cast<const uint32_t *>(data);
+            uint32_t cols = *reinterpret_cast<const uint32_t *>(data + sizeof(uint32_t));
+            uint32_t type_size = *reinterpret_cast<const uint32_t *>(data + 2 * sizeof(uint32_t));
+
+            // Determine OpenCV type (handle more types)
+            int type_cv;
+            if (type_size == sizeof(uint8_t))
+            {
+                type_cv = CV_8U;
+            }
+            else if (type_size == sizeof(float))
+            {
+                type_cv = CV_32F;
+            }
+            else if (type_size == sizeof(int))
+            {
+                type_cv = CV_32S; // Example: Handle int
+            }
+            else if (type_size == sizeof(double))
+            {
+                type_cv = CV_64F; // Example: Handle double
+            }
+            else
+            {
+                throw std::runtime_error("Unsupported data type size.");
+            }
+
+            // Extract matrix data (handle data types correctly)
+            const uint8_t *matrix_data = data + 3 * sizeof(uint32_t);
+
+            // Allocate memory for the descriptor data
+            cv::Mat descriptors(rows, cols, type_cv);
+
+            // Copy the data to the allocated memory (use memcpy for the specific data type)
+            if (type_size == sizeof(uint8_t))
+            {
+                std::memcpy(descriptors.data, matrix_data, rows * cols * sizeof(uint8_t));
+            }
+            else if (type_size == sizeof(float))
+            {
+                std::memcpy(descriptors.data, matrix_data, rows * cols * sizeof(float));
+            }
+            else if (type_size == sizeof(int))
+            {
+                std::memcpy(descriptors.data, matrix_data, rows * cols * sizeof(int));
+            }
+            else if (type_size == sizeof(double))
+            {
+                std::memcpy(descriptors.data, matrix_data, rows * cols * sizeof(double));
+            }
+            else
+            {
+                throw std::runtime_error("Unsupported data type size.");
+            }
+            return descriptors.clone();
         }
+
         std::vector<std::string> splitQueryFeatures(const std::string &input, char delimiter = '|')
         {
             std::vector<std::string> result;

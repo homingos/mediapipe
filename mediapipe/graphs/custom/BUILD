@@ -5,12 +5,13 @@ load(
 )
 
 licenses(["notice"])
-
+exports_files(["model.tflite"])
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
     name = "local_calculators",
     deps = [
+        "//mediapipe/calculators/core:previous_loopback_calculator",
         "//mediapipe/calculators/core:packet_cloner_calculator",
         "//mediapipe/calculators/core:flow_limiter_calculator",
         "//mediapipe/calculators/image:image_transformation_calculator",
@@ -23,9 +24,10 @@ cc_library(
         "//mediapipe/calculators/tflite:tflite_tensors_to_bytestream_calculator",
         "//mediapipe/gpu:gpu_buffer_to_image_frame_calculator",
         "//mediapipe/gpu:image_frame_to_gpu_buffer_calculator",
+        "//mediapipe/calculators/image:overlay_calculator_custom"
     ],
 )
-exports_files(["model.tflite"])
+
 
 mediapipe_binary_graph(
     name = "feature_extraction_desktop",

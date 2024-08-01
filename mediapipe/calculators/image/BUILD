@@ -670,6 +670,32 @@ cc_library(
 )
 
 cc_library(
+    name = "overlay_calculator_custom",
+    srcs = ["overlay_calculator.cc"],
+    deps = [
+        ":feature_detector_calculator_cc_proto",
+        "//mediapipe/framework:calculator_framework",
+        "//mediapipe/framework/formats:image_frame",
+        "//mediapipe/framework/formats:image_frame_opencv",
+        "//mediapipe/framework/formats:landmark_cc_proto",
+        "//mediapipe/framework/formats:video_stream_header",
+        "//mediapipe/framework/port:integral_types",
+        "//mediapipe/framework/port:logging",
+        "//mediapipe/framework/port:opencv_core",
+        "//mediapipe/framework/port:opencv_features2d",
+        "//mediapipe/framework/port:opencv_calib3d",
+        "//mediapipe/framework/port:opencv_imgproc",
+        "//mediapipe/framework/port:ret_check",
+        "//mediapipe/framework/port:status",
+        "//mediapipe/framework/port:threadpool",
+        "//mediapipe/framework/tool:options_util",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/synchronization",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "image_localization_calculator",
     srcs = ["image_localization_calculator.cc"],
     deps = [

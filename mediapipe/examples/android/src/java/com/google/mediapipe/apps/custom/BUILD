@@ -12,23 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# load("//mediapipe/java/com/google/mediapipe:mediapipe_aar.bzl", "mediapipe_aar")
-
-# mediapipe_aar(
-#     name = "mediapipe_custom",
-#     calculators = [
-#         "//mediapipe/graphs/custom:local_calculators"
-#     ],
-#     assets_dir = "assets",
-#     assets = [
-#         "//mediapipe/graphs/custom:feature_extraction_desktop.binarypb",
-#         "//mediapipe/graphs/custom:custom_model.tflite",
-#     ],
-# )
-
 licenses(["notice"])
 
 package(default_visibility = ["//visibility:private"])
+
+
+# load("//mediapipe/java/com/google/mediapipe:mediapipe_aar.bzl", "mediapipe_aar")
+
+# mediapipe_aar(
+#     name = "flam_scan_track",
+#     calculators = [
+#         "//mediapipe/graphs/custom:local_calculators"
+#     ],
+#     assets = [
+#         "//mediapipe/graphs/custom:feature_extraction_desktop.binarypb",
+#         "//mediapipe/graphs/custom:model.tflite",
+#     ],
+#     assets_dir = "",
+    
+# )
+
 
 cc_binary(
     name = "libmediapipe_jni.so",
@@ -64,7 +67,7 @@ android_binary(
         "inputVideoStreamName": "input_video_gpu",
         "outputVideoStreamName": "output_video",
         "flipFramesVertically": "True",
-        "converterNumBuffers": "4",
+        "converterNumBuffers": "16",
     },
     multidex = "native",
     deps = [
