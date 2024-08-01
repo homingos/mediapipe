@@ -67,7 +67,7 @@ android_binary(
         "inputVideoStreamName": "input_video_gpu",
         "outputVideoStreamName": "output_video",
         "flipFramesVertically": "True",
-        "converterNumBuffers": "16",
+        "converterNumBuffers": "6",
     },
     multidex = "native",
     deps = [

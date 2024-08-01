@@ -101,7 +101,9 @@
         "stack": "cpp",
         "valarray": "cpp",
         "*.ipp": "cpp",
-        "slist": "cpp"
+        "slist": "cpp",
+        "shared_mutex": "cpp",
+        "__mutex_base": "cpp"
     },
     "java.compile.nullAnalysis.mode": "automatic",
     "java.completion.favoriteStaticMembers": [

@@ -11,20 +11,18 @@ package(default_visibility = ["//visibility:public"])
 cc_library(
     name = "local_calculators",
     deps = [
-        "//mediapipe/calculators/core:previous_loopback_calculator",
+        "//mediapipe/calculators/core:packet_sequencer_calculator",
         "//mediapipe/calculators/core:packet_cloner_calculator",
         "//mediapipe/calculators/core:flow_limiter_calculator",
         "//mediapipe/calculators/image:image_transformation_calculator",
         "//mediapipe/calculators/image:image_localization_calculator",
         "//mediapipe/calculators/image:feature_detector_calculator_custom",
         "//mediapipe/calculators/image:reranking_calculator",
-        "//mediapipe/calculators/tflite:tflite_converter_calculator",
-        "//mediapipe/calculators/tflite:tflite_inference_calculator",
-        "//mediapipe/calculators/tflite:tflite_tensors_to_floats_calculator",
-        "//mediapipe/calculators/tflite:tflite_tensors_to_bytestream_calculator",
         "//mediapipe/gpu:gpu_buffer_to_image_frame_calculator",
         "//mediapipe/gpu:image_frame_to_gpu_buffer_calculator",
-        "//mediapipe/calculators/image:overlay_calculator_custom"
+        "//mediapipe/graphs/custom/subgraphs:tracking_subgraph",
+        "//mediapipe/graphs/custom/subgraphs:global_features_subgraph",
+        
     ],
 )
 
@@ -34,6 +32,6 @@ mediapipe_binary_graph(
     graph = "feature_extraction_desktop.pbtxt",
     output_name = "feature_extraction_desktop.binarypb",
     deps = [
-        ":local_calculators"
+        ":local_calculators",
     ],
 )

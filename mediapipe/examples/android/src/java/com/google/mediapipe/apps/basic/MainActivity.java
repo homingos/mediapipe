@@ -25,6 +25,7 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
+
 import com.google.mediapipe.components.CameraHelper;
 import com.google.mediapipe.components.CameraXPreviewHelper;
 import com.google.mediapipe.components.ExternalTextureConverter;
@@ -33,12 +34,16 @@ import com.google.mediapipe.components.PermissionHelper;
 import com.google.mediapipe.framework.AndroidAssetUtil;
 import com.google.mediapipe.framework.PacketGetter;
 import com.google.mediapipe.glutil.EglManager;
+
 import android.widget.TextView;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
+
 import okhttp3.Call;
 import okhttp3.Callback;
 import okhttp3.MediaType;
@@ -46,16 +51,27 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.sql.Time;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
 import com.google.mediapipe.framework.Packet;
+
 import java.util.concurrent.locks.ReentrantLock;
+
 import android.widget.Button;
 import android.graphics.Bitmap;
-import com.google.mediapipe.apps.basic.ImageRetriever;
+import android.graphics.BitmapFactory;
+import android.os.AsyncTask;
+import android.util.Log;
+
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.ProtocolException;
+import java.net.URL;
 
 /**
  * Main activity of MediaPipe basic app.
@@ -131,11 +147,10 @@ public class MainActivity extends AppCompatActivity {
     private long currentFeatsTs;
 
     private static final String SERVER_ENDPOINT = "https://us-central1-development-382019.cloudfunctions.net/cloudscan";
-    private final ExecutorService executorService = Executors.newSingleThreadExecutor();
+    private final ExecutorService executorService = Executors.newFixedThreadPool(4);
     private final ReentrantLock processingLock = new ReentrantLock();
     private OkHttpClient httpClient = new OkHttpClient.Builder().connectTimeout(1, TimeUnit.SECONDS).readTimeout(1, TimeUnit.SECONDS).build();
     private Button restartButton;
-    private ImageRetriever imageRetriever;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -173,34 +188,16 @@ public class MainActivity extends AppCompatActivity {
 
         PermissionHelper.checkAndRequestCameraPermissions(this);
 
-        imageRetriever = new ImageRetriever(new ImageRetriever.ImageCallback() {
-            @Override
-            public void onImageRetrieved(Bitmap bitmap) {
-                // Handle the retrieved Bitmap here
-                if (bitmap != null) {
-                    // Handle the case where the image retrieval was successful
-                    updateView("Image download successful");
-                } else {
-                    // Handle the case where the image retrieval failed
-                    updateView("Image download failed");
-                    Log.e(TAG, "Image retrieval failed");
-                }
-            }
-        });
-
         // Add packet callbacks for new outputs
         processor.addPacketCallback(
-                "bytes",
+                "output_tensor_floats",
                 (packet) -> {
                     if (!matchFound && !processing) {
                         float[] embeddingBytes = PacketGetter.getFloat32Vector(packet);
                         sendEmbeddingToServer(embeddingBytes);
-                        processingLock.lock();
-                        try {
-                            currentFeatsTs = packet.getTimestamp();
-                        } finally {
-                            processingLock.unlock();
-                        }
+                        processingLock.tryLock();
+                        currentFeatsTs = packet.getTimestamp();
+                        processingLock.unlock();
                     }
                 });
 
@@ -208,15 +205,35 @@ public class MainActivity extends AppCompatActivity {
                 "rr_index",
                 (packet) -> {
                     int index = PacketGetter.getInt32(packet);
-                    if (index < imgIdx.length() && !matchFound && imgIdx != null && index >= 0) {
-                        processingLock.lock();
-                        try {
-                            matchFound = true;
-                            updateView("Match found: " + imgIdx.optString(index));
-                            imageRetriever.execute(imgIdx.optString(index));
-                        } finally {
-                            processingLock.unlock();
+                    try {
+                        if (index < imgIdx.length() && !matchFound && imgIdx != null && index >= 0) {
+                            executorService.submit(() -> {
+                                processingLock.lock();
+                                try {
+                                    matchFound = true;
+                                    URL url = new URL(imgIdx.optString(index));
+                                    HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+                                    connection.setRequestMethod("GET");
+                                    connection.setDoInput(true);
+                                    connection.connect();
+
+                                    InputStream inputStream = connection.getInputStream();
+                                    Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
+                                    updateView("Image downloaded");
+                                    Packet imagePacket = processor.getPacketCreator().createRgbImageFrame(bitmap);
+                                    processor.getGraph().addPacketToInputStream("match_image", imagePacket,
+                                            System.currentTimeMillis());
+                                    processor.getGraph().closeInputStream("scanning_frame");
+                                    bitmap.recycle();
+                                } catch (ProtocolException ex) {
+                                } catch (IOException ex) {
+                                } finally {
+                                    processingLock.unlock();
+                                }
+                            });
                         }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error accessing image index: " + e.getMessage());
                     }
                 });
     }
@@ -332,17 +349,14 @@ public class MainActivity extends AppCompatActivity {
     private void sendEmbeddingToServer(float[] embeddingBytes) {
         executorService.submit(() -> {
             try {
-                processingLock.lock();
-                try {
-                    if (processing) {
-                        updateView("Processing...");
-                        processingLock.unlock();
-                        return;
-                    }
-                    processing = true;
-                } finally {
+                processingLock.tryLock();
+                if (processing) {
+                    updateView("Processing...");
                     processingLock.unlock();
+                    return;
                 }
+                processing = true;
+                processingLock.unlock();
                 // Convert float array to byte array
                 ByteBuffer byteBuffer = ByteBuffer.allocate(embeddingBytes.length * 4); // 4 bytes per float
                 byteBuffer.order(ByteOrder.nativeOrder()); // Use the native byte order
@@ -363,86 +377,53 @@ public class MainActivity extends AppCompatActivity {
                 httpClient.newCall(request).enqueue(new Callback() {
                     @Override
                     public void onFailure(Call call, IOException e) {
-                        processingLock.lock();
-                        try {
-                            processing = false;
-                        } finally {
-                            processingLock.unlock();
-                        }
+                        processingLock.tryLock();
+                        processing = false;
+                        processingLock.unlock();
                         Log.e(TAG, "Error sending embedding to server: " + e.getMessage());
                     }
 
                     @Override
                     public void onResponse(Call call, Response response) {
+                        JSONArray images = null;
                         try {
                             if (response.isSuccessful()) {
                                 String responseBody = response.body().string();
                                 JSONObject Jobject = new JSONObject(responseBody);
-                                JSONArray images = Jobject.getJSONArray("images");
+                                images = Jobject.getJSONArray("images");
                                 if (images.length() == 0) {
                                     Log.e(TAG, "No images returned from server");
                                     updateView("No detections");
-                                    processingLock.lock();
-                                    try {
-                                        processing = false;
-                                    } finally {
-                                        processingLock.unlock();
-                                    }
                                     return;
+                                } else {
+                                    updateView("Detection : " + images.length());
                                 }
 
                                 JSONArray features = Jobject.getJSONArray("features");
 
                                 if (features.length() == 0) {
                                     Log.e(TAG, "No features returned from server");
-                                    return;
                                 } else {
-                                    processingLock.lock();
-                                    try {
-                                        imgIdx = images;
-                                        processing = false;
-                                    } finally {
-                                        processingLock.unlock();
-                                    }
                                     processor.getGraph().addPacketToInputStream("query_feats", createQueryFeaturesPacket(features), currentFeatsTs);
                                 }
                             } else {
                                 Log.e(TAG, "Server returned an error: " + response.code());
-                                processingLock.lock();
-                                try {
-                                    processing = false;
-                                } finally {
-                                    processingLock.unlock();
-                                }
                             }
                         } catch (JSONException e) {
                             Log.e(TAG, "Error reading server response: " + e.getMessage());
-                            processingLock.lock();
-                            try {
-                                processing = false;
-                            } finally {
-                                processingLock.unlock();
-                            }
                         } catch (IOException e) {
                             Log.e(TAG, "Error reading server response: " + e.getMessage());
-                            processingLock.lock();
-                            try {
-                                processing = false;
-                            } finally {
-                                processingLock.unlock();
-                            }
+                        } finally {
+                            processingLock.tryLock();
+                            processing = false;
+                            imgIdx = images;
+                            processingLock.unlock();
+                            response.close();
                         }
                     }
                 });
             } catch (Exception e) {
                 Log.e(TAG, "Error creating JSON payload: " + e.getMessage());
-            } finally {
-                processingLock.lock();
-                try {
-                    processing = false;
-                } finally {
-                    processingLock.unlock();
-                }
             }
         });
     }
@@ -469,14 +450,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void restartDetection() {
-        processingLock.lock();
-        try {
-            matchFound = false;
-            processing = false;
-            // imgIdx = null;
-        } finally {
-            processingLock.unlock();
-        }
+        processingLock.tryLock();
+        matchFound = false;
+        processing = false;
+        // imgIdx = null; 
+        processingLock.unlock();
         updateView("Detection restarted"); // Update the UI
     }
 }

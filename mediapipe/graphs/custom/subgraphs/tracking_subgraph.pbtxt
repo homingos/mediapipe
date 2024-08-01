@@ -1,0 +1,26 @@
+
+type: "TrackingSubgraph"
+
+input_stream: "input_frame"
+input_stream: "match_image"
+output_stream: "overlayed_frame"
+
+
+node {
+  calculator: "StreamToSidePacketCalculator"
+  input_stream: "match_image"
+  output_side_packet: "match_image_side_packet"
+}
+node {
+  calculator: "SidePacketToStreamCalculator"
+  input_stream: "TICK:input_frame"
+  input_side_packet: "match_image_side_packet"
+  output_stream: "AT_TICK:match_image_packet"
+}
+
+node: {
+  calculator: "ImageOverlayCalculator"
+  input_stream: "PRIMARY_IMAGE:input_frame"
+  input_stream : "SECONDARY_IMAGE:match_image_packet"
+  output_stream: "OVERLAYED_IMAGE:overlayed_frame"
+}
