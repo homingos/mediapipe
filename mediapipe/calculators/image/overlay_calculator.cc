@@ -46,22 +46,11 @@ namespace mediapipe
             // Handle the first non-empty packet from SECONDARY_IMAGE
             if (!cc->Inputs().Tag("SECONDARY_IMAGE").IsEmpty())
             {
-                ABSL_LOG(INFO) << "SECONDARY_IMAGE is not empty";
                 if (cc->Inputs().Tag("PRIMARY_IMAGE").IsEmpty())
                 {
                     ABSL_LOG(INFO) << "PRIMARY_IMAGE is empty";
-                    // cv::Mat image(640, 480, CV_8UC3, cv::Scalar(255, 255, 255));
-                    // std::unique_ptr<ImageFrame> output_image_frame =
-                    //     absl::make_unique<ImageFrame>(ImageFormat::SRGB, image.cols,
-                    //                                   image.rows,
-                    //                                   ImageFrame::kGlDefaultAlignmentBoundary);
-                    // image.copyTo(formats::MatView(output_image_frame.get()));
-                    // cc->Outputs()
-                    //     .Tag("OVERLAYED_IMAGE")
-                    //     .Add(output_image_frame.release(), cc->InputTimestamp());
                     return absl::OkStatus();
                 }
-                ABSL_LOG(INFO) << "PRIMARY_IMAGE is not empty";
                 const auto &secondary_image =
                     cc->Inputs().Tag("SECONDARY_IMAGE").Get<ImageFrame>();
                 const auto &primary_image =
@@ -100,7 +89,6 @@ namespace mediapipe
                                     const ImageFrame &secondary_image)
         {
             // Process the overlay
-            ABSL_LOG(INFO) << "ProcessAndCopy executing";
             OverlayImages(cc, primary_image, secondary_image);
             ABSL_LOG(INFO) << "ProcessAndCopy done";
             return absl::OkStatus();
@@ -123,7 +111,6 @@ namespace mediapipe
             {
                 cv::Mat primary_view = formats::MatView(&primary_image);
                 cv::Mat secondary_view = formats::MatView(&secondary_image);
-
                 // Convert to grayscale for feature detection.
                 cv::Mat primary_gray, secondary_gray;
                 cv::cvtColor(primary_view, primary_gray, cv::COLOR_BGR2GRAY);
@@ -133,10 +120,8 @@ namespace mediapipe
                 std::vector<cv::KeyPoint> primary_keypoints, secondary_keypoints;
                 cv::Mat primary_descriptors, secondary_descriptors;
 
-                ABSL_LOG(INFO) << "Running ORB1";
                 feature_detector_->detectAndCompute(
                     primary_gray, cv::noArray(), primary_keypoints, primary_descriptors);
-                ABSL_LOG(INFO) << "Running ORB2";
                 feature_detector_->detectAndCompute(
                     secondary_gray, cv::noArray(), secondary_keypoints,
                     secondary_descriptors);
@@ -166,7 +151,6 @@ namespace mediapipe
                     return;
                 }
 
-                ABSL_LOG(INFO) << "Finding GoodMatch";
                 const float ratio_thresh = 0.7f;
                 std::vector<cv::DMatch> good_matches;
                 for (size_t i = 0; i < knn_matches.size(); i++)
@@ -179,7 +163,6 @@ namespace mediapipe
                 }
 
                 // Find homography matrix.
-                ABSL_LOG(INFO) << "Finding Homography";
                 std::vector<cv::Point2f> primary_points, secondary_points;
                 for (const auto &match : good_matches)
                 {
@@ -187,10 +170,9 @@ namespace mediapipe
                     secondary_points.push_back(secondary_keypoints[match.trainIdx].pt);
                 }
                 cv::Mat homography;
-                if (primary_points.size() >= 4 && secondary_points.size() >= 4)
+                if (primary_points.size() >= 8 && secondary_points.size() >= 8)
                 {
-                    homography = cv::findHomography(secondary_points, primary_points,
-                                                    cv::RANSAC);
+                    homography = cv::findHomography(secondary_points, primary_points, cv::RANSAC);
                 }
                 else
                 {
@@ -207,7 +189,7 @@ namespace mediapipe
                 if (!homography.empty())
                 {
                     cv::warpPerspective(secondary_view, warped_secondary_image, homography,
-                                        primary_view.size());
+                                        primary_view.size(), cv::INTER_NEAREST, cv::BORDER_CONSTANT, 0);
                 }
                 else
                 {
@@ -222,12 +204,14 @@ namespace mediapipe
                 cv::Mat overlayed_image;
                 if (!warped_secondary_image.empty())
                 {
-                    overlayed_image = primary_view.clone(); // Create a copy of the primary
-                                                            // image.
-                    // You can use different blending modes here, e.g.,
-                    // cv::addWeighted(overlayed_image, 0.5, warped_secondary_image, 0.5, 0,
-                    // overlayed_image); // Blend with 50% transparency
-                    warped_secondary_image.copyTo(overlayed_image, warped_secondary_image);
+                    overlayed_image = primary_view.clone();
+                    cv::Mat mask;
+                    cv::cvtColor(warped_secondary_image, mask, cv::COLOR_BGR2GRAY);
+                    cv::threshold(mask, mask, 0, 0, cv::THRESH_BINARY_INV);
+                    cv::Mat inverted_mask;
+                    cv::bitwise_not(mask, inverted_mask);
+                    // Use the mask to overlay the warped secondary image
+                    warped_secondary_image.copyTo(overlayed_image, inverted_mask);
                 }
                 else
                 {

@@ -11,18 +11,16 @@ package(default_visibility = ["//visibility:public"])
 cc_library(
     name = "local_calculators",
     deps = [
-        "//mediapipe/calculators/core:packet_sequencer_calculator",
-        "//mediapipe/calculators/core:packet_cloner_calculator",
-        "//mediapipe/calculators/core:flow_limiter_calculator",
-        "//mediapipe/calculators/image:image_transformation_calculator",
-        "//mediapipe/calculators/image:image_localization_calculator",
-        "//mediapipe/calculators/image:feature_detector_calculator_custom",
-        "//mediapipe/calculators/image:reranking_calculator",
-        "//mediapipe/gpu:gpu_buffer_to_image_frame_calculator",
-        "//mediapipe/gpu:image_frame_to_gpu_buffer_calculator",
-        "//mediapipe/graphs/custom/subgraphs:tracking_subgraph",
-        "//mediapipe/graphs/custom/subgraphs:global_features_subgraph",
         
+        "//mediapipe/gpu:gpu_buffer_to_image_frame_calculator",
+        "//mediapipe/calculators/image:image_localization_calculator",
+        "//mediapipe/calculators/core:pass_through_calculator",
+         "//mediapipe/calculators/core:gate_calculator",
+         "//mediapipe/calculators/core:side_packet_to_stream_calculator",
+         "//mediapipe/calculators/core:stream_to_side_packet_calculator",
+        "//mediapipe/graphs/custom/subgraphs:tracking_subgraph",
+        "//mediapipe/graphs/custom/subgraphs:scanning_subgraph",
+        "//mediapipe/gpu:image_frame_to_gpu_buffer_calculator",
     ],
 )
 

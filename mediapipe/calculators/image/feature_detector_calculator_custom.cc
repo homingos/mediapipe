@@ -47,6 +47,7 @@ namespace mediapipe
 
     absl::Status Process(CalculatorContext *cc) override
     {
+      ABSL_LOG(INFO) << "FeatureDetection runnning";
       const Timestamp &timestamp = cc->InputTimestamp();
       if (timestamp == Timestamp::PreStream())
       {

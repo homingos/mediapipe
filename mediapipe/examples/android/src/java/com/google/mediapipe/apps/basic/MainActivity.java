@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.mediapipe.apps.basic;
 
+import android.graphics.Color;
+
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
@@ -187,7 +189,9 @@ public class MainActivity extends AppCompatActivity {
                         applicationInfo.metaData.getBoolean("flipFramesVertically", FLIP_FRAMES_VERTICALLY));
 
         PermissionHelper.checkAndRequestCameraPermissions(this);
-
+        processor.getGraph().addPacketToInputStream("match_image", processor.getPacketCreator().createRgbImageFrame(
+                Bitmap.createBitmap(640, 480, Bitmap.Config.ARGB_8888)), System.currentTimeMillis());
+        processor.getGraph().addPacketToInputStream("enable_scanning", processor.getPacketCreator().createBool(true), System.currentTimeMillis());
         // Add packet callbacks for new outputs
         processor.addPacketCallback(
                 "output_tensor_floats",
@@ -223,7 +227,7 @@ public class MainActivity extends AppCompatActivity {
                                     Packet imagePacket = processor.getPacketCreator().createRgbImageFrame(bitmap);
                                     processor.getGraph().addPacketToInputStream("match_image", imagePacket,
                                             System.currentTimeMillis());
-                                    processor.getGraph().closeInputStream("scanning_frame");
+                                    processor.getGraph().addPacketToInputStream("enable_scanning", processor.getPacketCreator().createBool(false), System.currentTimeMillis());
                                     bitmap.recycle();
                                 } catch (ProtocolException ex) {
                                 } catch (IOException ex) {
@@ -414,11 +418,15 @@ public class MainActivity extends AppCompatActivity {
                         } catch (IOException e) {
                             Log.e(TAG, "Error reading server response: " + e.getMessage());
                         } finally {
-                            processingLock.tryLock();
-                            processing = false;
-                            imgIdx = images;
-                            processingLock.unlock();
-                            response.close();
+                            try {
+                                processingLock.tryLock();
+                                processing = false;
+                                imgIdx = images;
+                                processingLock.unlock();
+                                response.close();
+                            } catch (Exception e) {
+                                response.close();
+                            }
                         }
                     }
                 });

@@ -5,22 +5,47 @@ input_stream: "input_frame"
 input_stream: "match_image"
 output_stream: "overlayed_frame"
 
+node {
+  calculator: "FlowLimiterCalculator"
+  input_stream: "input_frame"
+  input_stream: "FINISHED:overlayed_frame"
+  input_stream_info: {
+    tag_index: "FINISHED"
+    back_edge: true
+  }
+  node_options: {
+    [type.googleapis.com/mediapipe.FlowLimiterCalculatorOptions] {
+      max_in_flight: 1
+    }
+  }
+  output_stream: "throttled_input_video_cpu"
+}
 
 node {
   calculator: "StreamToSidePacketCalculator"
   input_stream: "match_image"
   output_side_packet: "match_image_side_packet"
 }
+
 node {
   calculator: "SidePacketToStreamCalculator"
-  input_stream: "TICK:input_frame"
+  input_stream: "TICK:throttled_input_video_cpu"
   input_side_packet: "match_image_side_packet"
   output_stream: "AT_TICK:match_image_packet"
 }
 
+node {
+  calculator: "PacketClonerCalculator"
+  input_stream: "TICK:throttled_input_video_cpu"
+  input_stream: "throttled_input_video_cpu"
+  input_stream: "match_image_packet"
+  output_stream: "cloned_input_frame"
+  output_stream: "cloned_match_image_packet"
+}
+
 node: {
   calculator: "ImageOverlayCalculator"
-  input_stream: "PRIMARY_IMAGE:input_frame"
-  input_stream : "SECONDARY_IMAGE:match_image_packet"
+  input_stream: "PRIMARY_IMAGE:cloned_input_frame"
+  input_stream : "SECONDARY_IMAGE:cloned_match_image_packet"
   output_stream: "OVERLAYED_IMAGE:overlayed_frame"
 }

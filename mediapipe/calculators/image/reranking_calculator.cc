@@ -45,6 +45,7 @@ namespace mediapipe
 
         absl::Status Process(CalculatorContext *cc) override
         {
+            ABSL_LOG(INFO) << "RerankCalculator runnning";
             if (cc->Inputs().Tag("FEATURES").IsEmpty() || cc->Inputs().Tag("QFEATURES").IsEmpty())
             {
                 auto output = absl::make_unique<int>(-1);
@@ -88,11 +89,12 @@ namespace mediapipe
                     }
                 }
                 match_counts[selectionIndex] = localMatchCount;
+                ABSL_LOG(INFO) << "SCORES: " << match_counts[selectionIndex];
             }
 
             // Find the index with the maximum match count
             int max_index = -1;
-            int max_count = 4;
+            int max_count = 8;
             for (int i = 0; i < match_counts.size(); ++i)
             {
                 if (match_counts[i] > max_count)
