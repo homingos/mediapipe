@@ -17,10 +17,10 @@
 
 #include <opencv2/core/version.hpp>
 
-#ifdef CV_VERSION_EPOCH  // for OpenCV 2.x
+#ifdef CV_VERSION_EPOCH // for OpenCV 2.x
 #include <opencv2/features2d/features2d.hpp>
 #else
 #include <opencv2/features2d.hpp>
 #endif
 
-#endif  // MEDIAPIPE_FRAMEWORK_PORT_OPENCV_FEATURES2D_INC_H_
+#endif // MEDIAPIPE_FRAMEWORK_PORT_OPENCV_FEATURES2D_INC_H_

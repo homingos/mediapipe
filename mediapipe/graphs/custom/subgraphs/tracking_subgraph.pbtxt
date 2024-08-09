@@ -4,6 +4,7 @@ type: "TrackingSubgraph"
 input_stream: "input_frame"
 input_stream: "match_image"
 output_stream: "overlayed_frame"
+output_stream: "tracked_boxes"
 
 node {
   calculator: "FlowLimiterCalculator"
@@ -43,9 +44,23 @@ node {
   output_stream: "cloned_match_image_packet"
 }
 
+node {
+  calculator: "PreviousLoopbackCalculator"
+  input_stream: "MAIN:cloned_input_frame"
+  input_stream: "LOOP:homography"
+  input_stream_info: {
+    tag_index: "LOOP"
+    back_edge: true
+  }
+  output_stream: "PREV_LOOP:prev_homography"
+}
+
 node: {
-  calculator: "ImageOverlayCalculator"
+  calculator: "TrackingCalculator"
   input_stream: "PRIMARY_IMAGE:cloned_input_frame"
   input_stream : "SECONDARY_IMAGE:cloned_match_image_packet"
+  input_stream: "FEEDBACK_I:prev_homography"
   output_stream: "OVERLAYED_IMAGE:overlayed_frame"
+  output_stream: "FEEDBACK_O:homography"
+  output_stream: "BOXES:tracked_boxes"
 }

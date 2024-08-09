@@ -7,15 +7,9 @@ output_stream: "FLOATS:output_tensor_floats"
 output_stream: "rr_index"
 
 node {
-  calculator: "PictureLocalizationCalculator"
-  input_stream: "IMAGE:input_frame"
-  output_stream: "IMAGE:localized_frame" 
-}
-
-node {
   calculator: "FlowLimiterCalculator"
-  input_stream: "localized_frame"
-  input_stream: "FINISHED:feats"
+  input_stream: "input_frame"
+  input_stream: "FINISHED:output_tensor_floats"
   input_stream_info: {
     tag_index: "FINISHED"
     back_edge: true
@@ -28,11 +22,9 @@ node {
   output_stream: "throttled_input_video_cpu"
 }
 
-
-
 node {
   calculator: "ImageTransformationCalculator"
-  input_stream: "IMAGE:input_frame"
+  input_stream: "IMAGE:throttled_input_video_cpu"
   output_stream: "IMAGE:resized_frame"
   node_options: {
     [type.googleapis.com/mediapipe.ImageTransformationCalculatorOptions] {
@@ -67,7 +59,7 @@ node {
 
 node {
   calculator: "ImageTransformationCalculator"
-  input_stream: "IMAGE:input_frame"
+  input_stream: "IMAGE:throttled_input_video_cpu"
   output_stream: "IMAGE:transformed_input_frame"
   node_options: {
     [type.googleapis.com/mediapipe.ImageTransformationCalculatorOptions] {

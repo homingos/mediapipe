@@ -127,7 +127,6 @@ node: {
         sync_set {
           tag_index: "TRACKING"
           tag_index: "TRACK_TIME"
-          tag_index: "VIDEO"
         }
         sync_set {
           tag_index: "START_POS"
@@ -153,8 +152,27 @@ node: {
 }
 
 
+node {
+  calculator: "PacketClonerCalculator"
+  input_stream: "TICK:input_video_cpu"
+  input_stream: "tracking_output"
+  output_stream: "cloned_tracking_output"
+  node_options: {
+    [type.googleapis.com/mediapipe.PacketClonerCalculatorOptions] {
+      output_packets_only_when_all_inputs_received: true
+    }
+  }
+}
+
+node {
+  calculator: "FrameJoinerCalculator"
+  input_stream: "FRAME:input_video_cpu"
+  input_stream: "OVERLAY:cloned_tracking_output"
+  output_stream: "COMBINED:overlayed_frame"
+}
+
 node: {
   calculator: "ImageFrameToGpuBufferCalculator"
-  input_stream: "boxes"
+  input_stream: "overlayed_frame"
   output_stream: "output_video"
 }
