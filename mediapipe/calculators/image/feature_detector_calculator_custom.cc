@@ -40,7 +40,7 @@ namespace mediapipe
               .GetExtension(FeatureDetectorCalculatorOptions::ext);
       feature_detector_ = cv::ORB::create(
           options_.max_features(), options_.scale_factor(),
-          options_.pyramid_level(), kPatchSize - 1, 0, 2, cv::ORB::FAST_SCORE);
+          options_.pyramid_level(), kPatchSize - 1, 0, 2, cv::ORB::HARRIS_SCORE);
       cc->SetOffset(TimestampDiff(0));
       return absl::OkStatus();
     }

@@ -74,6 +74,7 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.ProtocolException;
 import java.net.URL;
+import java.util.Arrays;
 
 /**
  * Main activity of MediaPipe basic app.
@@ -193,6 +194,17 @@ public class MainActivity extends AppCompatActivity {
                 Bitmap.createBitmap(640, 480, Bitmap.Config.ARGB_8888)), System.currentTimeMillis());
         processor.getGraph().addPacketToInputStream("enable_scanning", processor.getPacketCreator().createBool(true), System.currentTimeMillis());
         // Add packet callbacks for new outputs
+        processor.addPacketCallback("box_floats",
+                (packet) -> {
+                    try {
+                        float[] boxFloats = PacketGetter.getFloat32Vector(packet);
+                        updateView(Arrays.toString(boxFloats));
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error getting box floats: " + e.getMessage());
+                    }
+
+                }
+        );
         processor.addPacketCallback(
                 "output_tensor_floats",
                 (packet) -> {
@@ -462,6 +474,7 @@ public class MainActivity extends AppCompatActivity {
         matchFound = false;
         processing = false;
         // imgIdx = null; 
+        processor.getGraph().addPacketToInputStream("enable_scanning", processor.getPacketCreator().createBool(true), System.currentTimeMillis());
         processingLock.unlock();
         updateView("Detection restarted"); // Update the UI
     }

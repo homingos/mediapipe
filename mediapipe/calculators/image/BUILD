@@ -689,6 +689,19 @@ cc_library(
 )
 
 cc_library(
+    name = "box_to_floats_calculator",
+    srcs = ["box_to_floats_calculator.cc"],
+    deps = [
+        "//mediapipe/framework:calculator_framework",
+        "//mediapipe/framework/port:status",
+        "//mediapipe/util/tracking",
+        "//mediapipe/util/tracking:box_tracker",
+        "@com_google_absl//absl/memory",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "tracking_calculator",
     srcs = ["tracking_calculator.cc"],
     deps = [

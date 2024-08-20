@@ -83,7 +83,7 @@ namespace mediapipe
                 int localMatchCount = 0;
                 for (const auto &match : matches)
                 {
-                    if (match.size() == 2 && match[0].distance < 0.7f * match[1].distance)
+                    if (match.size() == 2 && match[0].distance < 0.75f * match[1].distance)
                     {
                         localMatchCount++;
                     }
@@ -94,7 +94,7 @@ namespace mediapipe
 
             // Find the index with the maximum match count
             int max_index = -1;
-            int max_count = 10;
+            int max_count = 15;
             for (int i = 0; i < match_counts.size(); ++i)
             {
                 if (match_counts[i] > max_count)

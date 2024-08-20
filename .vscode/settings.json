@@ -111,7 +111,8 @@
         "__memory": "cpp",
         "filesystem": "cpp",
         "alignedvector3": "cpp",
-        "*.expression": "cpp"
+        "*.expression": "cpp",
+        "text_encoding": "cpp"
     },
     "java.compile.nullAnalysis.mode": "automatic",
     "java.completion.favoriteStaticMembers": [

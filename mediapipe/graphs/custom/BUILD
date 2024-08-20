@@ -28,6 +28,10 @@ cc_library(
         "//mediapipe/calculators/video:motion_analysis_calculator",
         "//mediapipe/framework/stream_handler:immediate_input_stream_handler",
         "//mediapipe/framework/stream_handler:sync_set_input_stream_handler",
+        "//mediapipe/calculators/core:flow_limiter_calculator",
+        "//mediapipe/calculators/image:box_to_floats_calculator",
+        "//mediapipe/calculators/image:image_properties_calculator",
+
     ],
 )
 
