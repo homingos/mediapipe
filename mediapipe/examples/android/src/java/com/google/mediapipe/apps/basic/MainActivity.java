@@ -76,12 +76,21 @@ import java.net.ProtocolException;
 import java.net.URL;
 import java.util.Arrays;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
+import java.util.List;
+import android.os.Looper;
+import android.os.Handler;  
+
 /**
  * Main activity of MediaPipe basic app.
  */
 public class MainActivity extends AppCompatActivity {
 
-    private static final String TAG = "MainActivity";
+    private static final String TAG = "Aman Mediapipe";
+    private static final String ASSET_URL_BASE = "https://storage.googleapis.com/avatar-system/test/assets/";
+
 
     // Flips the camera-preview frames vertically by default, before sending them
     // into FrameProcessor
@@ -165,6 +174,11 @@ public class MainActivity extends AppCompatActivity {
         } catch (NameNotFoundException e) {
             Log.e(TAG, "Cannot find application info: " + e);
         }
+
+
+		final String assetDir = getFilesDir().getAbsolutePath() + "/";
+		downloadAssets();
+		Assets.copyFiles(getAssets(), assetDir + "/", true);
 
         previewDisplayView = new SurfaceView(this);
         setupPreviewDisplayView();
@@ -478,4 +492,73 @@ public class MainActivity extends AppCompatActivity {
         processingLock.unlock();
         updateView("Detection restarted"); // Update the UI
     }
+
+     private void downloadAssets() {
+		 final String assetDir = getFilesDir().getAbsolutePath() + "/";
+		 List<String> files = Arrays.asList("testcinema.ox3dv", "cinema.jpeg",
+				 "trex-attribution.txt", "trex.mtl", "trex.obj", "trex.png");
+		 for (String file : files) {
+			 String fileURL = ASSET_URL_BASE + file;
+			 downloadFile(fileURL, assetDir, file);
+		 }
+		 Assets.copyFiles(getAssets(), assetDir, true);
+	 }
+ 
+	 private void downloadFile(final String fileURL, final String dirPath, final String fileName) {
+		 ExecutorService executor = Executors.newSingleThreadExecutor();
+		 Handler handler = new Handler(Looper.getMainLooper());
+ 
+		 executor.execute(() -> {
+			 String result = performDownload(fileURL, dirPath, fileName);
+			 handler.post(() -> {
+				 // Update UI with result, e.g., display a message or update a view
+				 if (result != null) {
+					 Log.d(TAG, "Download successful: " + result);
+				 } else {
+					 Log.e(TAG, "Download failed");
+				 }
+			 });
+		 });
+	 }
+ 
+	 private String performDownload(String fileURL, String dirPath, String fileName) {
+		 InputStream input = null;
+		 OutputStream output = null;
+		 HttpURLConnection urlConnection = null;
+		 try {
+			 File dir = new File(dirPath);
+			 if (!dir.exists() && !dir.mkdirs()) {
+				 Log.e(TAG, "Failed to create directory: " + dirPath);
+				 return null;
+			 }
+ 
+			 URL url = new URL(fileURL);
+			 urlConnection = (HttpURLConnection) url.openConnection();
+			 urlConnection.setRequestMethod("GET");
+			 urlConnection.connect();
+ 
+			 File file = new File(dir, fileName);
+			 output = new FileOutputStream(file);
+ 
+			 input = urlConnection.getInputStream();
+			 byte[] buffer = new byte[4096];
+			 int byteCount;
+			 while ((byteCount = input.read(buffer)) != -1) {
+				 output.write(buffer, 0, byteCount);
+			 }
+ 
+			 return file.getAbsolutePath();
+		 } catch (Exception e) {
+			 Log.e(TAG, "Error downloading file: " + e.getMessage(), e);
+			 return null;
+		 } finally {
+			 try {
+				 if (input != null) input.close();
+				 if (output != null) output.close();
+			 } catch (Exception e) {
+				 Log.e(TAG, "Error closing streams: " + e.getMessage(), e);
+			 }
+			 if (urlConnection != null) urlConnection.disconnect();
+		 }
+	 }
 }
