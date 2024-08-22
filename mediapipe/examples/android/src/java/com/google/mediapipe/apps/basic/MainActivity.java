@@ -575,7 +575,6 @@ public class MainActivity extends AppCompatActivity {
 	 }
 
     private void displayImage(String imagePath) {
-    Bitmap bitmap = BitmapFactory.decodeFile(imagePath);
-    mGLSurfaceView.getRenderer().setBitmap(bitmap);
+        Bitmap bitmap = BitmapFactory.decodeFile(imagePath);
     }
 }
