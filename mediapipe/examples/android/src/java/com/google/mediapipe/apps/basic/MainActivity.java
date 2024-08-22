@@ -75,13 +75,15 @@ import java.net.HttpURLConnection;
 import java.net.ProtocolException;
 import java.net.URL;
 import java.util.Arrays;
-
+import com.google.mediapipe.apps.basic.CustomGLSurfaceView;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.util.List;
 import android.os.Looper;
-import android.os.Handler;  
+import android.os.Handler;
+import android.widget.FrameLayout;
+
 
 /**
  * Main activity of MediaPipe basic app.
@@ -164,6 +166,16 @@ public class MainActivity extends AppCompatActivity {
     private OkHttpClient httpClient = new OkHttpClient.Builder().connectTimeout(1, TimeUnit.SECONDS).readTimeout(1, TimeUnit.SECONDS).build();
     private Button restartButton;
 
+    private CustomGLSurfaceView mGLSurfaceView;
+    private FrameLayout frameLayout;
+
+    public void initialize(){
+        frameLayout = new FrameLayout(this);
+        mGLSurfaceView = new CustomGLSurfaceView(this);
+        frameLayout.addView(mGLSurfaceView);
+        setContentView(frameLayout);
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -175,9 +187,8 @@ public class MainActivity extends AppCompatActivity {
             Log.e(TAG, "Cannot find application info: " + e);
         }
 
-
-		final String assetDir = getFilesDir().getAbsolutePath() + "/";
-		downloadAssets();
+        final String assetDir = this.getFilesDir().getAbsolutePath() + "/";
+        downloadAssets();
 		Assets.copyFiles(getAssets(), assetDir + "/", true);
 
         previewDisplayView = new SurfaceView(this);
@@ -561,4 +572,9 @@ public class MainActivity extends AppCompatActivity {
 			 if (urlConnection != null) urlConnection.disconnect();
 		 }
 	 }
+
+    //  private void displayImage(String imagePath) {
+    //     Bitmap bitmap = BitmapFactory.decodeFile(imagePath);
+    //     mGLSurfaceView.getRenderer().setBitmap(bitmap);
+    //  }
 }
