@@ -12,6 +12,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
+import java.util.Arrays;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
@@ -39,6 +40,8 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer {
     private final String vertexShaderCode = ShaderManager.VERTEX_SHADER_CODE;
     private final String fragmentShaderCode = ShaderManager.FRAGMENT_SHADER_CODE;
 
+    private static final String TAG = "Aman GLRenderer";
+
     public void setContext(Context context){
         this.context = context;
     }
@@ -64,11 +67,18 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer {
     @Override
     public void onDrawFrame(GL10 gl) {
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
-
-        // Render the original image
         GLES20.glUseProgram(mProgram);
-        renderImage(0);
+
+        int positionHandle = GLES20.glGetAttribLocation(mProgram, "vPosition");
+        GLES20.glEnableVertexAttribArray(positionHandle);
+        vertexBuffer.position(0);
+        GLES20.glVertexAttribPointer(positionHandle, 3, GLES20.GL_FLOAT, false, 0, vertexBuffer);
+
+        GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+
+        GLES20.glDisableVertexAttribArray(positionHandle);
     }
+
 
     @Override
     public void onSurfaceChanged(GL10 gl, int width, int height) {
@@ -142,5 +152,11 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer {
         GLES20.glShaderSource(shader, shaderCode);
         GLES20.glCompileShader(shader);
         return shader;
+    }
+    public void updateBoxVertices(float[] boxFloats) {
+        Log.d(TAG, "updateBoxVertices" + Arrays.toString(boxFloats));
+        vertexBuffer.clear();
+        vertexBuffer.put(boxFloats);
+        vertexBuffer.position(0);
     }
 }

@@ -16,6 +16,7 @@ import javax.microedition.khronos.opengles.GL10;
 public class CustomGLSurfaceView extends GLSurfaceView {
 
     private GLRenderer mGLRenderer;
+    private static final String TAG = "Aman CustomGLSurfaceView";
 
     public CustomGLSurfaceView(Context context) {
         super(context);
@@ -25,6 +26,8 @@ public class CustomGLSurfaceView extends GLSurfaceView {
             @Override
             public void onSurfaceCreated(GL10 gl, EGLConfig config) {
                 super.onSurfaceCreated(gl, config);
+                Log.d(TAG, "onSurfaceCreated: GLRenderer created");
+
             }
 
             @Override
@@ -32,11 +35,18 @@ public class CustomGLSurfaceView extends GLSurfaceView {
                 // Override this method if needed
             }
         };
+        Log.d(TAG, "CustomGLSurfaceView: GLRenderer created");
         mGLRenderer.setContext(context);
         setRenderer(mGLRenderer);
     }
     
     public GLRenderer getRenderer() {
+        if(mGLRenderer == null) {
+            Log.d(TAG, "getRenderer: GLRenderer is null");
+        }
+        else {
+            Log.d(TAG, "getRenderer: GLRenderer is not null");
+        }
         return mGLRenderer;
     }
 }

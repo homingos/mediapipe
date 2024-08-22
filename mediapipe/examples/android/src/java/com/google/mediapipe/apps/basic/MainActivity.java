@@ -76,6 +76,7 @@ import java.net.ProtocolException;
 import java.net.URL;
 import java.util.Arrays;
 import com.google.mediapipe.apps.basic.CustomGLSurfaceView;
+import com.google.mediapipe.apps.basic.GLRenderer;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
@@ -167,11 +168,13 @@ public class MainActivity extends AppCompatActivity {
     private Button restartButton;
 
     private CustomGLSurfaceView mGLSurfaceView;
+    private GLRenderer mGLRenderer;
     private FrameLayout frameLayout;
 
     public void initialize(){
         frameLayout = new FrameLayout(this);
         mGLSurfaceView = new CustomGLSurfaceView(this);
+        mGLRenderer = mGLSurfaceView.getRenderer();
         frameLayout.addView(mGLSurfaceView);
         setContentView(frameLayout);
     }
@@ -179,6 +182,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        initialize();
         setContentView(getContentViewLayoutResId());
 
         try {
@@ -223,6 +227,12 @@ public class MainActivity extends AppCompatActivity {
                 (packet) -> {
                     try {
                         float[] boxFloats = PacketGetter.getFloat32Vector(packet);
+                        if (mGLRenderer != null) {
+                            mGLRenderer.updateBoxVertices(boxFloats);
+                        } else {
+                            Log.e(TAG, "GLRenderer is not initialized.");
+                        }
+                        // Log.d(TAG, "Box floats: " + Arrays.toString(boxFloats));
                         updateView(Arrays.toString(boxFloats));
                     } catch (Exception e) {
                         Log.e(TAG, "Error getting box floats: " + e.getMessage());
@@ -513,7 +523,6 @@ public class MainActivity extends AppCompatActivity {
 			 downloadFile(fileURL, assetDir, file);
 		 }
 		 Assets.copyFiles(getAssets(), assetDir, true);
-         displayImage(assetDir + "cinema.jpeg");
 	 }
  
 	 private void downloadFile(final String fileURL, final String dirPath, final String fileName) {
@@ -573,8 +582,4 @@ public class MainActivity extends AppCompatActivity {
 			 if (urlConnection != null) urlConnection.disconnect();
 		 }
 	 }
-
-    private void displayImage(String imagePath) {
-        Bitmap bitmap = BitmapFactory.decodeFile(imagePath);
-    }
 }
