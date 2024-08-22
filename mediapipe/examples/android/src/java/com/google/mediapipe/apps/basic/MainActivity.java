@@ -513,6 +513,7 @@ public class MainActivity extends AppCompatActivity {
 			 downloadFile(fileURL, assetDir, file);
 		 }
 		 Assets.copyFiles(getAssets(), assetDir, true);
+         displayImage(assetDir + "cinema.jpeg");
 	 }
  
 	 private void downloadFile(final String fileURL, final String dirPath, final String fileName) {
@@ -573,8 +574,8 @@ public class MainActivity extends AppCompatActivity {
 		 }
 	 }
 
-    //  private void displayImage(String imagePath) {
-    //     Bitmap bitmap = BitmapFactory.decodeFile(imagePath);
-    //     mGLSurfaceView.getRenderer().setBitmap(bitmap);
-    //  }
+    private void displayImage(String imagePath) {
+    Bitmap bitmap = BitmapFactory.decodeFile(imagePath);
+    mGLSurfaceView.getRenderer().setBitmap(bitmap);
+    }
 }
