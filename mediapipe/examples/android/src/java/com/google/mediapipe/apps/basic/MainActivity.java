@@ -172,18 +172,18 @@ public class MainActivity extends AppCompatActivity {
     private FrameLayout frameLayout;
 
     public void initialize(){
-        frameLayout = new FrameLayout(this);
+        frameLayout =  findViewById(R.id.preview_display_layout);
         mGLSurfaceView = new CustomGLSurfaceView(this);
         mGLRenderer = mGLSurfaceView.getRenderer();
         frameLayout.addView(mGLSurfaceView);
-        setContentView(frameLayout);
+        // setContentView(frameLayout);
     }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        initialize();
         setContentView(getContentViewLayoutResId());
+        initialize();
 
         try {
             applicationInfo = getPackageManager().getApplicationInfo(getPackageName(), PackageManager.GET_META_DATA);
@@ -228,7 +228,7 @@ public class MainActivity extends AppCompatActivity {
                     try {
                         float[] boxFloats = PacketGetter.getFloat32Vector(packet);
                         if (mGLRenderer != null) {
-                            mGLRenderer.updateBoxVertices(boxFloats);
+                            // mGLRenderer.updateBoxVertices(boxFloats);
                         } else {
                             Log.e(TAG, "GLRenderer is not initialized.");
                         }
@@ -381,7 +381,7 @@ public class MainActivity extends AppCompatActivity {
                         new SurfaceHolder.Callback() {
                     @Override
                     public void surfaceCreated(SurfaceHolder holder) {
-                        processor.getVideoSurfaceOutput().setSurface(holder.getSurface());
+                        // processor.getVideoSurfaceOutput().setSurface(holder.getSurface());
                     }
 
                     @Override

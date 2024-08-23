@@ -22,19 +22,7 @@ public class CustomGLSurfaceView extends GLSurfaceView {
         super(context);
 
         setEGLContextClientVersion(2);
-        mGLRenderer = new GLRenderer() {
-            @Override
-            public void onSurfaceCreated(GL10 gl, EGLConfig config) {
-                super.onSurfaceCreated(gl, config);
-                Log.d(TAG, "onSurfaceCreated: GLRenderer created");
-
-            }
-
-            @Override
-            public void onSurfaceChanged(GL10 gl, int width, int height) {
-                // Override this method if needed
-            }
-        };
+        mGLRenderer = new GLRenderer();
         Log.d(TAG, "CustomGLSurfaceView: GLRenderer created");
         mGLRenderer.setContext(context);
         setRenderer(mGLRenderer);
