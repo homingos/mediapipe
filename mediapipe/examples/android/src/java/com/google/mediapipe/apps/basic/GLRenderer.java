@@ -38,6 +38,17 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer {
     };
     float color[] = { 1.0f, 0.0f, 0.0f, 1.0f }; // Red color
 
+    public void setPlaneCoordinates(float[] coordinates) {
+        if (coordinates.length == 12) {
+            vertexCoordinates = coordinates;
+            if (vertexBuffer != null) {
+                vertexBuffer.clear();
+                vertexBuffer.put(vertexCoordinates);
+                vertexBuffer.position(0);
+            }
+        }
+    }
+
     public void onSurfaceCreated(GL10 gl, EGLConfig config) {
         ByteBuffer bb = ByteBuffer.allocateDirect(vertexCoordinates.length * 4);
         bb.order(ByteOrder.nativeOrder());

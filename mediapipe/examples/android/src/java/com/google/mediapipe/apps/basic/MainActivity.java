@@ -174,7 +174,25 @@ public class MainActivity extends AppCompatActivity {
     public void initialize(){
         frameLayout =  findViewById(R.id.preview_display_layout);
         mGLSurfView = new CustomGLSurfaceView(this);
+        float[] planeCoordinates = {
+            -0.1f, -0.1f, 0.0f,  // Bottom Left
+            -0.1f, 0.1f, 0.0f,   // Top Left
+            0.1f, -0.1f, 0.0f,   // Bottom Right
+            0.1f, 0.1f, 0.0f     // Top Right
+        };
+        mGLSurfView.setPlaneCoordinates(planeCoordinates);
         frameLayout.addView(mGLSurfView);
+    }
+
+
+    private float[] convertToXYZ(float[] xyCoordinates) {
+        float[] xyzCoordinates = new float[xyCoordinates.length / 2 * 3];
+        for (int i = 0, j = 0; i < xyCoordinates.length; i += 2, j += 3) {
+            xyzCoordinates[j] = xyCoordinates[i];       // x
+            xyzCoordinates[j + 1] = xyCoordinates[i + 1]; // y
+            xyzCoordinates[j + 2] = 0.0f;               // z
+        }
+        return xyzCoordinates;
     }
 
     @Override

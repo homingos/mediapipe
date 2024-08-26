@@ -27,4 +27,8 @@ public class CustomGLSurfaceView extends GLSurfaceView {
         };
         setRenderer(mGLRenderer);
     }
+
+    public void setPlaneCoordinates(float[] coordinates) {
+        mGLRenderer.setPlaneCoordinates(coordinates);
+    }
 }
