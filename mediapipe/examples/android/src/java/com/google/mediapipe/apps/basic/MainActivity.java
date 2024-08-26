@@ -398,7 +398,7 @@ public class MainActivity extends AppCompatActivity {
                         new SurfaceHolder.Callback() {
                     @Override
                     public void surfaceCreated(SurfaceHolder holder) {
-                        // processor.getVideoSurfaceOutput().setSurface(holder.getSurface());
+                        processor.getVideoSurfaceOutput().setSurface(holder.getSurface());
                     }
 
                     @Override
