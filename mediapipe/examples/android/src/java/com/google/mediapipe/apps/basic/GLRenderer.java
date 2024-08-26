@@ -7,6 +7,7 @@ import android.opengl.GLUtils;
 import android.media.MediaPlayer;
 import android.content.Context;
 import android.view.Surface;
+import android.util.Log;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -16,6 +17,8 @@ import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
 public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFrameAvailableListener {
+
+    private static final String TAG = "Aman GLRenderer";
 
     private FloatBuffer vertexBuffer;
     private FloatBuffer textureBuffer;
@@ -41,7 +44,7 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
     private SurfaceTexture surfaceTexture;
     private MediaPlayer mediaPlayer;
     private final int vertexCount = 4;
-    private final int vertexStride = 0;
+    private final int vertexStride = 3 * 4;
 
     private boolean firstFrameReceived = false;
 
@@ -95,6 +98,14 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
         GLES20.glAttachShader(mProgram, fragmentShader);
         GLES20.glLinkProgram(mProgram);
 
+        // Check for linking errors
+        int[] linkStatus = new int[1];
+        GLES20.glGetProgramiv(mProgram, GLES20.GL_LINK_STATUS, linkStatus, 0);
+        if (linkStatus[0] != GLES20.GL_TRUE) {
+            String errorMsg = GLES20.glGetProgramInfoLog(mProgram);
+            Log.e(TAG, "Error linking program: " + errorMsg);
+        }
+
         // Set up texture
         int[] textures = new int[1];
         GLES20.glGenTextures(1, textures, 0);
@@ -106,14 +117,23 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
 
-        surfaceTexture = new SurfaceTexture(textureId);
-        surfaceTexture.setOnFrameAvailableListener(this);
+        runOnUiThread(()->{
+            surfaceTexture = new SurfaceTexture(textureId);
+            surfaceTexture.setOnFrameAvailableListener(this);
+    
+            // Set up MediaPlayer
+            mediaPlayer = MediaPlayer.create(getContext(), R.raw.test);
+            mediaPlayer.setSurface(new Surface(surfaceTexture));
+            mediaPlayer.setLooping(true);
+            mediaPlayer.start();
+        });
+    }
 
-        // Set up MediaPlayer
-        mediaPlayer = MediaPlayer.create(getContext(), R.raw.test);
-        mediaPlayer.setSurface(new Surface(surfaceTexture));
-        mediaPlayer.setLooping(true);
-        mediaPlayer.start();
+    private void runOnUiThread(Runnable runnable) {
+        Context context = getContext();
+        if (context instanceof MainActivity) {
+            ((MainActivity) context).runOnUiThread(runnable);
+        }
     }
 
     public void onDrawFrame(GL10 gl) {
@@ -128,15 +148,16 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
         //Pass vertex data to shader
         positionHandle = GLES20.glGetAttribLocation(mProgram, "vPosition");
         GLES20.glEnableVertexAttribArray(positionHandle);
-        GLES20.glVertexAttribPointer(positionHandle, 3, GLES20.GL_FLOAT, false, 0, vertexBuffer);
+        GLES20.glVertexAttribPointer(positionHandle, 3, GLES20.GL_FLOAT, false, vertexStride, vertexBuffer);
 
         // Pass texture coordinates data to shader
         textureHandle = GLES20.glGetAttribLocation(mProgram, "aTexCoord");
         GLES20.glEnableVertexAttribArray(textureHandle);
-        GLES20.glVertexAttribPointer(textureHandle, 2, GLES20.GL_FLOAT, false, 0, textureBuffer);
+        GLES20.glVertexAttribPointer(textureHandle, 2, GLES20.GL_FLOAT, false, vertexStride, textureBuffer);
 
         // Bind the texture
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureId);
+        GLES20.glUniform1i(GLES20.glGetUniformLocation(mProgram, "uTexture"), 0);
 
         // Draw the plane
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, vertexCount);
@@ -162,12 +183,6 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
     public void onFrameAvailable(SurfaceTexture surfaceTexture) {
         firstFrameReceived = true;
     }
-
-    // @Override
-    // private void onSurfaceDestroyed() {
-    //     mediaPlayer.stop();
-    //     mediaPlayer.release();
-    // }
 
     protected abstract Context getContext();
 }
