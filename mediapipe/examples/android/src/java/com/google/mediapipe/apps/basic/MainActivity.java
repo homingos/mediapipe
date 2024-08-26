@@ -167,16 +167,14 @@ public class MainActivity extends AppCompatActivity {
     private OkHttpClient httpClient = new OkHttpClient.Builder().connectTimeout(1, TimeUnit.SECONDS).readTimeout(1, TimeUnit.SECONDS).build();
     private Button restartButton;
 
-    private CustomGLSurfaceView mGLSurfaceView;
+    private CustomGLSurfaceView mGLSurfView;
     private GLRenderer mGLRenderer;
     private FrameLayout frameLayout;
 
     public void initialize(){
         frameLayout =  findViewById(R.id.preview_display_layout);
-        mGLSurfaceView = new CustomGLSurfaceView(this);
-        mGLRenderer = mGLSurfaceView.getRenderer();
-        frameLayout.addView(mGLSurfaceView);
-        // setContentView(frameLayout);
+        mGLSurfView = new CustomGLSurfaceView(this);
+        frameLayout.addView(mGLSurfView);
     }
 
     @Override
