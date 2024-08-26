@@ -171,19 +171,50 @@ public class MainActivity extends AppCompatActivity {
     private GLRenderer mGLRenderer;
     private FrameLayout frameLayout;
 
+    private int screenWidth;
+    private int screenHeight;
+
     public void initialize(){
         frameLayout =  findViewById(R.id.preview_display_layout);
         mGLSurfView = new CustomGLSurfaceView(this);
+        screenWidth = ScreenUtils.getScreenWidth(this);
+        screenHeight = ScreenUtils.getScreenHeight(this);
         float[] xyCoordinates = {
-            -0.8f,  0.6f,
-             0.8f,  0.6f,
-            -0.8f, -0.6f,
-             0.8f, -0.6f
+            435.63876f, 498.8496f,
+            434.48798f, 1411.9774f,
+            -146.23349f, 497.8233f,
+            -151.09409f, 1419.503f
         };
-        float[] planeCoordinates = convertToXYZ(xyCoordinates);
+        // float[] xyCoordinates = {
+        //     -0.1f, 0.1f, // Top Left
+        //     0.8f, 0.8f, // Top Right
+        //     0.0f, 0.0f, // Bottom Right
+        //     0.5f, 0.5f // Bottom Left
+        // };
+        float[] planeCoordinates = convertToNDC(xyCoordinates, screenWidth, screenHeight);
+        planeCoordinates = convertToXYZ(planeCoordinates);
+        // float[] planeCoordinates = convertToXYZ(xyCoordinates);
         mGLSurfView.setPlaneCoordinates(planeCoordinates);
         frameLayout.addView(mGLSurfView);
     }
+
+    public float[] convertToNDC(float[] screenCoords, int screenWidth, int screenHeight) {
+        float[] ndcCoords = new float[screenCoords.length];
+        
+        float xCenter = screenWidth / 2.0f;
+        float yCenter = screenHeight / 2.0f;
+        
+        for (int i = 0; i < screenCoords.length; i += 2) {
+            // Convert x coordinate
+            ndcCoords[i] = 2.0f * (screenCoords[i] - xCenter) / screenWidth;
+            
+            // Convert y coordinate
+            ndcCoords[i + 1] = 2.0f * (yCenter - screenCoords[i + 1]) / screenHeight;
+        }
+        
+        return ndcCoords;
+    }
+    
 
 
     private float[] convertToXYZ(float[] xyCoordinates) {
@@ -244,12 +275,7 @@ public class MainActivity extends AppCompatActivity {
                 (packet) -> {
                     try {
                         float[] boxFloats = PacketGetter.getFloat32Vector(packet);
-                        if (mGLRenderer != null) {
-                            // mGLRenderer.updateBoxVertices(boxFloats);
-                        } else {
-                            Log.e(TAG, "GLRenderer is not initialized.");
-                        }
-                        // Log.d(TAG, "Box floats: " + Arrays.toString(boxFloats));
+                        Log.d(TAG, "Box floats: " + Arrays.toString(boxFloats));
                         updateView(Arrays.toString(boxFloats));
                     } catch (Exception e) {
                         Log.e(TAG, "Error getting box floats: " + e.getMessage());
