@@ -8,6 +8,7 @@ import android.media.MediaPlayer;
 import android.content.Context;
 import android.view.Surface;
 import android.util.Log;
+import android.opengl.GLES11Ext;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -31,8 +32,9 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
         "  vTexCoord = aTexCoord;" +
         "}";
     private final String fragmentShaderCode =
+        "#extension GL_OES_EGL_image_external : require \n" +
         "precision mediump float;" +
-        "uniform sampler2D uTexture;" +
+        "uniform samplerExternalOES uTexture;" +
         "varying vec2 vTexCoord;" +
         "void main() {" +
         "  gl_FragColor = texture2D(uTexture, vTexCoord);" +
@@ -44,7 +46,7 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
     private SurfaceTexture surfaceTexture;
     private MediaPlayer mediaPlayer;
     private final int vertexCount = 4;
-    private final int vertexStride = 3 * 4;
+    private final int vertexStride = 2 * 4;
 
     private boolean firstFrameReceived = false;
 
@@ -111,22 +113,20 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
         GLES20.glGenTextures(1, textures, 0);
         textureId = textures[0];
 
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureId);
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR);
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
+        GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, textureId);
+        GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR);
+        GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
+        GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);
+        GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
 
-        runOnUiThread(()->{
-            surfaceTexture = new SurfaceTexture(textureId);
-            surfaceTexture.setOnFrameAvailableListener(this);
-    
-            // Set up MediaPlayer
-            mediaPlayer = MediaPlayer.create(getContext(), R.raw.test);
-            mediaPlayer.setSurface(new Surface(surfaceTexture));
-            mediaPlayer.setLooping(true);
-            mediaPlayer.start();
-        });
+        surfaceTexture = new SurfaceTexture(textureId);
+        surfaceTexture.setOnFrameAvailableListener(this);
+
+        // Set up MediaPlayer
+        mediaPlayer = MediaPlayer.create(getContext(), R.raw.test);
+        mediaPlayer.setSurface(new Surface(surfaceTexture));
+        mediaPlayer.setLooping(true);
+        mediaPlayer.start();
     }
 
     private void runOnUiThread(Runnable runnable) {
@@ -138,35 +138,44 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
 
     public void onDrawFrame(GL10 gl) {
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
+    
         GLES20.glUseProgram(mProgram);
-
-        // Update Texture with the video frame
-        if (firstFrameReceived) {
-            surfaceTexture.updateTexImage();   
-        }
-
-        //Pass vertex data to shader
+    
+        // Update the texture with the latest frame
+        surfaceTexture.updateTexImage();
+    
+        // Activate the texture unit and bind the texture
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+        GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, textureId);
+    
+        // Set the texture uniform in the shader
+        int textureUniformHandle = GLES20.glGetUniformLocation(mProgram, "uTexture");
+        GLES20.glUniform1i(textureUniformHandle, 0);
+    
+        // Pass vertex data to the shader
         positionHandle = GLES20.glGetAttribLocation(mProgram, "vPosition");
         GLES20.glEnableVertexAttribArray(positionHandle);
         GLES20.glVertexAttribPointer(positionHandle, 3, GLES20.GL_FLOAT, false, vertexStride, vertexBuffer);
-
-        // Pass texture coordinates data to shader
+    
+        // Pass texture coordinates data to the shader
         textureHandle = GLES20.glGetAttribLocation(mProgram, "aTexCoord");
         GLES20.glEnableVertexAttribArray(textureHandle);
-        GLES20.glVertexAttribPointer(textureHandle, 2, GLES20.GL_FLOAT, false, vertexStride, textureBuffer);
-
-        // Bind the texture
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureId);
-        GLES20.glUniform1i(GLES20.glGetUniformLocation(mProgram, "uTexture"), 0);
-
+        GLES20.glVertexAttribPointer(textureHandle, 2, GLES20.GL_FLOAT, false, 2 * 4, textureBuffer);
+    
         // Draw the plane
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, vertexCount);
-
-        // disable attribute arrays
+    
+        // Disable vertex attribute arrays
         GLES20.glDisableVertexAttribArray(positionHandle);
         GLES20.glDisableVertexAttribArray(textureHandle);
+    
+        // Check for OpenGL errors
+        int error = GLES20.glGetError();
+        if (error != GLES20.GL_NO_ERROR) {
+            Log.e("GL_ERROR", "OpenGL Error: " + error);
+        }
     }
-
+    
     @Override
     public void onSurfaceChanged(GL10 gl, int width, int height) {
         GLES20.glViewport(0, 0, width, height);
