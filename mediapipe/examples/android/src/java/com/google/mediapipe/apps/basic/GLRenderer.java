@@ -46,7 +46,7 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
     private SurfaceTexture surfaceTexture;
     private MediaPlayer mediaPlayer;
     private final int vertexCount = 4;
-    private final int vertexStride = 2 * 4;
+    private final int vertexStride = 3 * 4;
 
     private boolean firstFrameReceived = false;
 
