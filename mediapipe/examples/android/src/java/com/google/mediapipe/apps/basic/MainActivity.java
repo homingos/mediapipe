@@ -174,12 +174,13 @@ public class MainActivity extends AppCompatActivity {
     public void initialize(){
         frameLayout =  findViewById(R.id.preview_display_layout);
         mGLSurfView = new CustomGLSurfaceView(this);
-        float[] planeCoordinates = {
-            -0.1f, -0.1f, 0.0f,  // Bottom Left
-            -0.1f, 0.1f, 0.0f,   // Top Left
-            0.1f, -0.1f, 0.0f,   // Bottom Right
-            0.1f, 0.1f, 0.0f     // Top Right
+        float[] xyCoordinates = {
+            -0.8f,  0.6f,
+             0.8f,  0.6f,
+            -0.8f, -0.6f,
+             0.8f, -0.6f
         };
+        float[] planeCoordinates = convertToXYZ(xyCoordinates);
         mGLSurfView.setPlaneCoordinates(planeCoordinates);
         frameLayout.addView(mGLSurfView);
     }
