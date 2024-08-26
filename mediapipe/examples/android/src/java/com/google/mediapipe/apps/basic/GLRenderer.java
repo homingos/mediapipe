@@ -43,6 +43,8 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
     private final int vertexCount = 4;
     private final int vertexStride = 0;
 
+    private boolean firstFrameReceived = false;
+
     private float vertexCoordinates[] = {
         -0.5f,  0.25f, 0.0f,   // top left
          0.5f,  0.25f, 0.0f,   // top right
@@ -119,7 +121,9 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
         GLES20.glUseProgram(mProgram);
 
         // Update Texture with the video frame
-        surfaceTexture.updateTexImage();
+        if (firstFrameReceived) {
+            surfaceTexture.updateTexImage();   
+        }
 
         //Pass vertex data to shader
         positionHandle = GLES20.glGetAttribLocation(mProgram, "vPosition");
@@ -153,6 +157,17 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
         GLES20.glCompileShader(shader);
         return shader;
     }
+
+    @Override
+    public void onFrameAvailable(SurfaceTexture surfaceTexture) {
+        firstFrameReceived = true;
+    }
+
+    // @Override
+    // private void onSurfaceDestroyed() {
+    //     mediaPlayer.stop();
+    //     mediaPlayer.release();
+    // }
 
     protected abstract Context getContext();
 }
