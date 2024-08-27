@@ -37,7 +37,13 @@ public class CustomGLSurfaceView extends GLSurfaceView {
             }
             
         };
-        setRenderer(mGLRenderer);
+        CameraRenderer cameraRenderer = new CameraRenderer(mGLRenderer) {
+            @Override
+            public void drawCameraView(int textureId, float[] textureMatrix) {
+                // Implement camera view drawing here if needed
+            }
+        };
+        setRenderer(cameraRenderer);
     }
 
     public void setPlaneCoordinates(float[] coordinates) {
