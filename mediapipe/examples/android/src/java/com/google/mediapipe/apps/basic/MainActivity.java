@@ -77,6 +77,8 @@ import java.net.URL;
 import java.util.Arrays;
 import com.google.mediapipe.apps.basic.CustomGLSurfaceView;
 import com.google.mediapipe.apps.basic.GLRenderer;
+
+import com.google.mediapipe.apps.basic.ScreenUtils;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
@@ -174,9 +176,45 @@ public class MainActivity extends AppCompatActivity {
     private int screenWidth;
     private int screenHeight;
 
+    // public void initialize(){
+    //     previewDisplayView = new SurfaceView(this);
+    //     setupPreviewDisplayView();
+    //     frameLayout =  findViewById(R.id.gl_display_layout);
+    //     mGLSurfView = new CustomGLSurfaceView(this);
+    //     screenWidth = ScreenUtils.getScreenWidth(this);
+    //     screenHeight = ScreenUtils.getScreenHeight(this);
+    //     float[] xyCoordinates = {
+    //         435.63876f, 498.8496f,
+    //         434.48798f, 1411.9774f,
+    //         -146.23349f, 497.8233f,
+    //         -151.09409f, 1419.503f
+    //     };
+    //     // float[] xyCoordinates = {
+    //     //     -0.1f, 0.1f, // Top Left
+    //     //     0.8f, 0.8f, // Top Right
+    //     //     0.0f, 0.0f, // Bottom Right
+    //     //     0.5f, 0.5f // Bottom Left
+    //     // };
+    //     float[] planeCoordinates = convertToNDC(xyCoordinates, screenWidth, screenHeight);
+    //     planeCoordinates = convertToXYZ(planeCoordinates);
+    //     // float[] planeCoordinates = convertToXYZ(xyCoordinates);
+    //     mGLSurfView.setPlaneCoordinates(planeCoordinates);
+    //     frameLayout.addView(mGLSurfView);
+    //     mGLSurfView.setBackgroundColor(Color.TRANSPARENT);
+    //     mGLSurfView.bringToFront();
+
+    // }
+
     public void initialize(){
-        frameLayout =  findViewById(R.id.preview_display_layout);
+        previewDisplayView = new SurfaceView(this);
+        setupPreviewDisplayView();
+        
+        // Ensure visibility
+        previewDisplayView.setVisibility(View.VISIBLE);
+        
+        frameLayout = findViewById(R.id.gl_display_layout);
         mGLSurfView = new CustomGLSurfaceView(this);
+    
         screenWidth = ScreenUtils.getScreenWidth(this);
         screenHeight = ScreenUtils.getScreenHeight(this);
         float[] xyCoordinates = {
@@ -185,17 +223,17 @@ public class MainActivity extends AppCompatActivity {
             -146.23349f, 497.8233f,
             -151.09409f, 1419.503f
         };
-        // float[] xyCoordinates = {
-        //     -0.1f, 0.1f, // Top Left
-        //     0.8f, 0.8f, // Top Right
-        //     0.0f, 0.0f, // Bottom Right
-        //     0.5f, 0.5f // Bottom Left
-        // };
+    
         float[] planeCoordinates = convertToNDC(xyCoordinates, screenWidth, screenHeight);
         planeCoordinates = convertToXYZ(planeCoordinates);
-        // float[] planeCoordinates = convertToXYZ(xyCoordinates);
+    
         mGLSurfView.setPlaneCoordinates(planeCoordinates);
         frameLayout.addView(mGLSurfView);
+        mGLSurfView.setBackgroundColor(Color.TRANSPARENT);
+        
+        // Adjust Z-order to ensure GL view is on top
+        mGLSurfView.setTranslationZ(0.0f);  // or use a positive value if necessary
+        mGLSurfView.bringToFront();
     }
 
     public float[] convertToNDC(float[] screenCoords, int screenWidth, int screenHeight) {
@@ -242,9 +280,6 @@ public class MainActivity extends AppCompatActivity {
         final String assetDir = this.getFilesDir().getAbsolutePath() + "/";
         downloadAssets();
 		Assets.copyFiles(getAssets(), assetDir + "/", true);
-
-        previewDisplayView = new SurfaceView(this);
-        setupPreviewDisplayView();
 
         restartButton = findViewById(R.id.restart_button); // Get a reference to the button
         restartButton.setOnClickListener(view -> restartDetection()); // Set click listener
@@ -413,32 +448,58 @@ public class MainActivity extends AppCompatActivity {
                 isCameraRotated ? displaySize.getWidth() : displaySize.getHeight());
     }
 
+    // private void setupPreviewDisplayView() {
+    //     previewDisplayView.setVisibility(View.GONE);
+    //     ViewGroup viewGroup = findViewById(R.id.preview_display_layout);
+    //     viewGroup.addView(previewDisplayView);
+    //     previewDisplayView.setTranslationZ(-10.0f); // Move the view 10 units closer to the foreground
+
+
+    //     previewDisplayView
+    //             .getHolder()
+    //             .addCallback(
+    //                     new SurfaceHolder.Callback() {
+    //                 @Override
+    //                 public void surfaceCreated(SurfaceHolder holder) {
+    //                     processor.getVideoSurfaceOutput().setSurface(holder.getSurface());
+    //                 }
+
+    //                 @Override
+    //                 public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+    //                     onPreviewDisplaySurfaceChanged(holder, format, width, height);
+    //                 }
+
+    //                 @Override
+    //                 public void surfaceDestroyed(SurfaceHolder holder) {
+    //                     processor.getVideoSurfaceOutput().setSurface(null);
+    //                 }
+    //             });
+    // }
+
     private void setupPreviewDisplayView() {
-        previewDisplayView.setVisibility(View.GONE);
+        previewDisplayView.setVisibility(View.VISIBLE); // Set to VISIBLE
+    
         ViewGroup viewGroup = findViewById(R.id.preview_display_layout);
         viewGroup.addView(previewDisplayView);
-
-        previewDisplayView
-                .getHolder()
-                .addCallback(
-                        new SurfaceHolder.Callback() {
-                    @Override
-                    public void surfaceCreated(SurfaceHolder holder) {
-                        // processor.getVideoSurfaceOutput().setSurface(holder.getSurface());
-                    }
-
-                    @Override
-                    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-                        onPreviewDisplaySurfaceChanged(holder, format, width, height);
-                    }
-
-                    @Override
-                    public void surfaceDestroyed(SurfaceHolder holder) {
-                        processor.getVideoSurfaceOutput().setSurface(null);
-                    }
-                });
+    
+        previewDisplayView.getHolder().addCallback(
+            new SurfaceHolder.Callback() {
+                @Override
+                public void surfaceCreated(SurfaceHolder holder) {
+                    processor.getVideoSurfaceOutput().setSurface(holder.getSurface());
+                }
+    
+                @Override
+                public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+                    onPreviewDisplaySurfaceChanged(holder, format, width, height);
+                }
+    
+                @Override
+                public void surfaceDestroyed(SurfaceHolder holder) {
+                    processor.getVideoSurfaceOutput().setSurface(null);
+                }
+            });
     }
-
     // Send the embedding to the server
     private void sendEmbeddingToServer(float[] embeddingBytes) {
         executorService.submit(() -> {
