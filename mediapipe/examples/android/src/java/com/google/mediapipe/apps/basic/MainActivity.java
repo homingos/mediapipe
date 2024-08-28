@@ -171,31 +171,112 @@ public class MainActivity extends AppCompatActivity {
     private GLRenderer mGLRenderer;
     private FrameLayout frameLayout;
 
+    private float[] xyCoordinates;
+
     private int screenWidth;
     private int screenHeight;
 
+    private final ReentrantLock coordinatesLock = new ReentrantLock();
+
+
+    // public void initialize(){
+    //     frameLayout =  findViewById(R.id.preview_display_layout);
+    //     mGLSurfView = new CustomGLSurfaceView(this);
+    //     screenWidth = ScreenUtils.getScreenWidth(this);
+    //     screenHeight = ScreenUtils.getScreenHeight(this);
+    //     // float x = 1.0;
+    //     // float[] xyCoordinates = {
+    //     //     -22.299046f, 379.2182f,
+    //     //     -180.87448f, 657.33734f,
+    //     //     154.47157f, 858.98804f,
+    //     //     163.44731f, 428.62915f
+    //     // };
+    //     if(xyCoordinates == null){
+    //         xyCoordinates = new float[]{
+    //             0.0f, 0.0f,
+    //             0.0f, 0.0f,
+    //             0.0f, 0.0f,
+    //             0.0f, 0.0f
+    //         };
+    //     }
+
+    //     Log.d(TAG,"coordinates " + Arrays.toString(xyCoordinates));
+
+    //     xyCoordinates = rearrangeCoordinates(xyCoordinates);
+
+    //     Log.e(TAG,"coordinates " + Arrays.toString(xyCoordinates));
+
+    //     float[] planeCoordinates = convertToNDC(xyCoordinates, screenWidth, screenHeight);
+    //     planeCoordinates = convertToXYZ(planeCoordinates);
+    //     // float[] planeCoordinates = convertToXYZ(xyCoordinates);
+    //     mGLSurfView.setPlaneCoordinates(planeCoordinates);
+    //     frameLayout.addView(mGLSurfView);
+    // }
+
+    
+
     public void initialize(){
-        frameLayout =  findViewById(R.id.preview_display_layout);
+        frameLayout = findViewById(R.id.preview_display_layout);
         mGLSurfView = new CustomGLSurfaceView(this);
         screenWidth = ScreenUtils.getScreenWidth(this);
         screenHeight = ScreenUtils.getScreenHeight(this);
-        float[] xyCoordinates = {
-            435.63876f, 498.8496f,
-            434.48798f, 1411.9774f,
-            -146.23349f, 497.8233f,
-            -151.09409f, 1419.503f
-        };
         // float[] xyCoordinates = {
-        //     -0.1f, 0.1f, // Top Left
-        //     0.8f, 0.8f, // bottom left
-        //     0.0f, 0.0f, // Bottom Right
-        //     0.5f, 0.5f // top right
+        //     -22.299046f, 379.2182f,
+        //     -180.87448f, 657.33734f,
+        //     154.47157f, 858.98804f,
+        //     163.44731f, 428.62915f
         // };
-        float[] planeCoordinates = convertToNDC(xyCoordinates, screenWidth, screenHeight);
-        planeCoordinates = convertToXYZ(planeCoordinates);
-        // float[] planeCoordinates = convertToXYZ(xyCoordinates);
-        mGLSurfView.setPlaneCoordinates(planeCoordinates);
+
+        // Initial coordinate setup
+        if (xyCoordinates == null) {
+            xyCoordinates = new float[]{
+                0.0f, 0.0f,
+                0.0f, 0.0f,
+                0.0f, 0.0f,
+                0.0f, 0.0f
+            };
+        }
+
+        updateGLSurfaceViewCoordinates();
         frameLayout.addView(mGLSurfView);
+    }
+
+    private void updateGLSurfaceViewCoordinates() {
+        coordinatesLock.lock();
+        try{
+            xyCoordinates = rearrangeCoordinates(xyCoordinates);
+            Log.d(TAG, "XY coordinates " + Arrays.toString(xyCoordinates));
+            float[] planeCoordinates = convertToNDC(xyCoordinates, screenWidth, screenHeight);
+            planeCoordinates = convertToXYZ(planeCoordinates);
+            mGLSurfView.setPlaneCoordinates(planeCoordinates);
+        }
+        finally{
+            coordinatesLock.unlock();
+        }
+    }
+
+    private float[] rearrangeCoordinates(float[] coordinates) {
+        float[] rearranged = new float[coordinates.length];
+        
+        // Rearrange to match the desired order
+        rearranged[0] = coordinates[6]; // Top-right x
+        rearranged[1] = coordinates[7]; // Top-right y
+        
+        rearranged[2] = coordinates[4]; // Bottom-right x
+        rearranged[3] = coordinates[5]; // Bottom-right y
+        
+        rearranged[4] = coordinates[0]; // Top-left x
+        rearranged[5] = coordinates[1]; // Top-left y
+        
+        rearranged[6] = coordinates[2]; // Bottom-left x
+        rearranged[7] = coordinates[3]; // Bottom-left y
+        
+        // Ensure each value has an 'f' suffix
+        for (int i = 0; i < rearranged.length; i++) {
+            rearranged[i] = rearranged[i] * 1.0f;
+        }
+
+        return rearranged;
     }
 
     public float[] convertToNDC(float[] screenCoords, int screenWidth, int screenHeight) {
@@ -215,8 +296,6 @@ public class MainActivity extends AppCompatActivity {
         return ndcCoords;
     }
     
-
-
     private float[] convertToXYZ(float[] xyCoordinates) {
         float[] xyzCoordinates = new float[xyCoordinates.length / 2 * 3];
         for (int i = 0, j = 0; i < xyCoordinates.length; i += 2, j += 3) {
@@ -273,14 +352,20 @@ public class MainActivity extends AppCompatActivity {
         // Add packet callbacks for new outputs
         processor.addPacketCallback("box_floats",
                 (packet) -> {
+                    coordinatesLock.lock();
                     try {
                         float[] boxFloats = PacketGetter.getFloat32Vector(packet);
-                        Log.d(TAG, "Box floats: " + Arrays.toString(boxFloats));
+                        xyCoordinates = boxFloats;
+                        Log.e(TAG,"coordinates " + Arrays.toString(xyCoordinates));
+                        // Log.d(TAG, "Box floats: " + Arrays.toString(boxFloats));
+                        updateGLSurfaceViewCoordinates();
                         updateView(Arrays.toString(boxFloats));
                     } catch (Exception e) {
-                        Log.e(TAG, "Error getting box floats: " + e.getMessage());
+                        Log.e(TAG, "coordinates Error getting box floats: " + e.getMessage());
                     }
-
+                    finally {
+                        coordinatesLock.unlock();
+                    }
                 }
         );
         processor.addPacketCallback(

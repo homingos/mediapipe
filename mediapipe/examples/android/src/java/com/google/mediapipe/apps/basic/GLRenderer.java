@@ -97,10 +97,10 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
     "}";
 
     private float vertexCoordinates[] = {
-        -0.5f,  0.25f, 0.0f,   // top left
-         0.5f,  0.25f, 0.0f,   // top right
-        -0.5f, -0.25f, 0.0f,   // bottom left
-         0.5f, -0.25f, 0.0f    // bottom right
+        -1.0f,  1.0f, 0.0f,   // top left
+         1.0f,  1.0f, 0.0f,   // top right
+        -1.0f, -1.0f, 0.0f,   // bottom left
+         1.0f, -1.0f, 0.0f    // bottom right
     };
 
     private float[] textureCoordinates = {
