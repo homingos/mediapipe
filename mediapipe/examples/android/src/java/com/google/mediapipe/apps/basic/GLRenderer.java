@@ -196,30 +196,56 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
         surfaceTexture.setOnFrameAvailableListener(this);
     }
 
+    // private void setupCameraX() {
+    //     ProcessCameraProvider cameraProvider;
+    //     try {
+    //         cameraProvider = ProcessCameraProvider.getInstance(getContext()).get();
+    //     } catch (ExecutionException | InterruptedException e) {
+    //         Log.e(TAG, "Error setting up CameraX", e);
+    //         return;
+    //     }
+
+    //     Preview preview = new Preview.Builder().build();
+    //     preview.setSurfaceProvider(request -> {
+    //         Surface surface = new Surface(bgSurfaceTexture);
+    //         request.provideSurface(surface, ContextCompat.getMainExecutor(getContext()), result -> {
+    //             Log.d(TAG, "Surface provided for CameraX preview");
+    //         });
+    //     });
+
+    //     CameraSelector cameraSelector = new CameraSelector.Builder()
+    //         .requireLensFacing(CameraSelector.LENS_FACING_BACK)
+    //         .build();
+
+    //     cameraProvider.bindToLifecycle((LifecycleOwner) getContext(), cameraSelector, preview);
+    // }
     private void setupCameraX() {
-        ProcessCameraProvider cameraProvider;
-        try {
-            cameraProvider = ProcessCameraProvider.getInstance(getContext()).get();
-        } catch (ExecutionException | InterruptedException e) {
-            Log.e(TAG, "Error setting up CameraX", e);
-            return;
-        }
-
-        Preview preview = new Preview.Builder().build();
-        preview.setSurfaceProvider(request -> {
-            Surface surface = new Surface(bgSurfaceTexture);
-            request.provideSurface(surface, ContextCompat.getMainExecutor(getContext()), result -> {
-                Log.d(TAG, "Surface provided for CameraX preview");
+        // Run CameraX setup on the main thread
+        ContextCompat.getMainExecutor(getContext()).execute(() -> {
+            ProcessCameraProvider cameraProvider;
+            try {
+                cameraProvider = ProcessCameraProvider.getInstance(getContext()).get();
+            } catch (ExecutionException | InterruptedException e) {
+                Log.e(TAG, "Error setting up CameraX", e);
+                return;
+            }
+    
+            Preview preview = new Preview.Builder().build();
+            preview.setSurfaceProvider(request -> {
+                Surface surface = new Surface(bgSurfaceTexture);
+                request.provideSurface(surface, ContextCompat.getMainExecutor(getContext()), result -> {
+                    Log.d(TAG, "Surface provided for CameraX preview");
+                });
             });
+    
+            CameraSelector cameraSelector = new CameraSelector.Builder()
+                .requireLensFacing(CameraSelector.LENS_FACING_BACK)
+                .build();
+    
+            cameraProvider.bindToLifecycle((LifecycleOwner) getContext(), cameraSelector, preview);
         });
-
-        CameraSelector cameraSelector = new CameraSelector.Builder()
-            .requireLensFacing(CameraSelector.LENS_FACING_BACK)
-            .build();
-
-        cameraProvider.bindToLifecycle((LifecycleOwner) getContext(), cameraSelector, preview);
     }
-
+    
     private void initializeMediaPlayer() {
         mediaPlayer = MediaPlayer.create(getContext(), R.raw.test);
         mediaPlayer.setSurface(new Surface(surfaceTexture));
