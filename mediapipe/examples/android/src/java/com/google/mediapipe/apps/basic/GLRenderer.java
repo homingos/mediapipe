@@ -22,6 +22,7 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
     private static final String TAG = "Aman GLRenderer";
 
     private FloatBuffer vertexBuffer;
+    private FloatBuffer bgVertexBuffer;
     private FloatBuffer textureBuffer;
     private final String vertexShaderCode =
         "attribute vec4 vPosition;" +
@@ -39,7 +40,23 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
         "void main() {" +
         "  gl_FragColor = texture2D(uTexture, vTexCoord);" +
         "}";
+    // Vertex Shader for background
+    private final String bgVertexShaderCode =
+        "attribute vec4 vPosition;" +
+        "void main() {" +
+        "  gl_Position = vPosition;" +
+        "}";
+    
+    // Fragment Shader for background
+    private final String bgFragmentShaderCode =
+        "precision mediump float;" +
+        "uniform vec4 bgColor;" +
+        "void main() {" +
+        "  gl_FragColor = vec4(1.0,0.5,0.5,1.0);" +
+        "}";
+        
     private int mProgram;
+    private int bgProgram;
     private int positionHandle;
     private int textureHandle;
     private int textureId;
@@ -64,6 +81,14 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
         1.0f, 1.0f   // bottom right
     };
 
+    private float fullScreenVertexCoordinates[] = {
+        -1.0f,  1.0f, 0.0f,   // top left
+         1.0f,  1.0f, 0.0f,   // top right
+        -1.0f, -1.0f, 0.0f,   // bottom left
+         1.0f, -1.0f, 0.0f    // bottom right
+    };
+    
+
     float color[] = { 1.0f, 0.0f, 0.0f, 1.0f }; // Red color
 
     public void setPlaneCoordinates(float[] coordinates) {
@@ -78,6 +103,14 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
     }
 
     public void onSurfaceCreated(GL10 gl, EGLConfig config) {
+        // Background vertex buffer
+        ByteBuffer bbBg = ByteBuffer.allocateDirect(fullScreenVertexCoordinates.length * 4);
+        bbBg.order(ByteOrder.nativeOrder());
+        bgVertexBuffer = bbBg.asFloatBuffer();
+        bgVertexBuffer.put(fullScreenVertexCoordinates);
+        bgVertexBuffer.position(0);
+
+        // Video vertex buffer
         ByteBuffer bb = ByteBuffer.allocateDirect(vertexCoordinates.length * 4);
         bb.order(ByteOrder.nativeOrder());
         vertexBuffer = bb.asFloatBuffer();
@@ -91,6 +124,24 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
         textureBuffer.put(textureCoordinates);
         textureBuffer.position(0);
 
+        // Compile the background shader
+        int bgVertexShader = loadShader(GLES20.GL_VERTEX_SHADER, bgVertexShaderCode);
+        int bgFragmentShader = loadShader(GLES20.GL_FRAGMENT_SHADER, bgFragmentShaderCode);
+
+        bgProgram = GLES20.glCreateProgram();
+        GLES20.glAttachShader(bgProgram, bgVertexShader);
+        GLES20.glAttachShader(bgProgram, bgFragmentShader);
+        GLES20.glLinkProgram(bgProgram);
+
+        // Check for linking errors
+        int[] linkStatus = new int[1];
+        GLES20.glGetProgramiv(bgProgram, GLES20.GL_LINK_STATUS, linkStatus, 0);
+        if (linkStatus[0] != GLES20.GL_TRUE) {
+            String errorMsg = GLES20.glGetProgramInfoLog(bgProgram);
+            Log.e(TAG, "Error linking bgProgram: " + errorMsg);
+        }
+
+
         // Complie the shader and link program
         int vertexShader = loadShader(GLES20.GL_VERTEX_SHADER, vertexShaderCode);
         int fragmentShader = loadShader(GLES20.GL_FRAGMENT_SHADER, fragmentShaderCode);
@@ -99,14 +150,6 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
         GLES20.glAttachShader(mProgram, vertexShader);
         GLES20.glAttachShader(mProgram, fragmentShader);
         GLES20.glLinkProgram(mProgram);
-
-        // Check for linking errors
-        int[] linkStatus = new int[1];
-        GLES20.glGetProgramiv(mProgram, GLES20.GL_LINK_STATUS, linkStatus, 0);
-        if (linkStatus[0] != GLES20.GL_TRUE) {
-            String errorMsg = GLES20.glGetProgramInfoLog(mProgram);
-            Log.e(TAG, "Error linking program: " + errorMsg);
-        }
 
         // Set up texture
         int[] textures = new int[1];
@@ -137,8 +180,30 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
     }
 
     public void onDrawFrame(GL10 gl) {
-        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
+        // Clear the screen
+        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
     
+        // Use background Program
+        GLES20.glUseProgram(bgProgram);
+    
+        // Get the position handle for the background
+        int bgPositionHandle = GLES20.glGetAttribLocation(bgProgram, "vPosition");
+    
+        // Enable the vertex attribute array
+        GLES20.glEnableVertexAttribArray(bgPositionHandle);
+        GLES20.glVertexAttribPointer(bgPositionHandle, 3, GLES20.GL_FLOAT, false, vertexStride, bgVertexBuffer);
+    
+        // Set the background color
+        int bgColorHandle = GLES20.glGetUniformLocation(bgProgram, "bgColor");
+        GLES20.glUniform4fv(bgColorHandle, 1, color, 0);
+    
+        // Draw the background quad
+        GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, vertexCount);
+    
+        // Disable the vertex attribute array
+        GLES20.glDisableVertexAttribArray(bgPositionHandle);
+    
+        // Use the video frame program
         GLES20.glUseProgram(mProgram);
     
         // Update the texture with the latest frame
@@ -152,17 +217,18 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
         int textureUniformHandle = GLES20.glGetUniformLocation(mProgram, "uTexture");
         GLES20.glUniform1i(textureUniformHandle, 0);
     
-        // Pass vertex data to the shader
+        // Get position and texture coordinate handles
         positionHandle = GLES20.glGetAttribLocation(mProgram, "vPosition");
+        textureHandle = GLES20.glGetAttribLocation(mProgram, "aTexCoord");
+    
+        // Enable vertex attribute arrays
         GLES20.glEnableVertexAttribArray(positionHandle);
         GLES20.glVertexAttribPointer(positionHandle, 3, GLES20.GL_FLOAT, false, vertexStride, vertexBuffer);
     
-        // Pass texture coordinates data to the shader
-        textureHandle = GLES20.glGetAttribLocation(mProgram, "aTexCoord");
         GLES20.glEnableVertexAttribArray(textureHandle);
         GLES20.glVertexAttribPointer(textureHandle, 2, GLES20.GL_FLOAT, false, 2 * 4, textureBuffer);
     
-        // Draw the plane
+        // Draw the video frame
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, vertexCount);
     
         // Disable vertex attribute arrays
@@ -175,6 +241,7 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
             Log.e("GL_ERROR", "OpenGL Error: " + error);
         }
     }
+    
     
     @Override
     public void onSurfaceChanged(GL10 gl, int width, int height) {
