@@ -102,56 +102,59 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
         }
     }
 
+    @Override
     public void onSurfaceCreated(GL10 gl, EGLConfig config) {
-        // Background vertex buffer
-        ByteBuffer bbBg = ByteBuffer.allocateDirect(fullScreenVertexCoordinates.length * 4);
-        bbBg.order(ByteOrder.nativeOrder());
-        bgVertexBuffer = bbBg.asFloatBuffer();
-        bgVertexBuffer.put(fullScreenVertexCoordinates);
-        bgVertexBuffer.position(0);
+        setupBuffers();
+        compileAndLinkShaders();
+        setupTexture();
+        initializeMediaPlayer();
+    }
 
-        // Video vertex buffer
-        ByteBuffer bb = ByteBuffer.allocateDirect(vertexCoordinates.length * 4);
+    // Initialize and set up vertex and texture buffers
+    private void setupBuffers() {
+        bgVertexBuffer = createFloatBuffer(fullScreenVertexCoordinates);
+        vertexBuffer = createFloatBuffer(vertexCoordinates);
+        textureBuffer = createFloatBuffer(textureCoordinates);
+    }
+
+    private FloatBuffer createFloatBuffer(float[] coordinates) {
+        ByteBuffer bb = ByteBuffer.allocateDirect(coordinates.length * 4);
         bb.order(ByteOrder.nativeOrder());
-        vertexBuffer = bb.asFloatBuffer();
-        vertexBuffer.put(vertexCoordinates);
-        vertexBuffer.position(0);
+        FloatBuffer buffer = bb.asFloatBuffer();
+        buffer.put(coordinates);
+        buffer.position(0);
+        return buffer;
+    }
 
-        // Setup texture Buffer
-        ByteBuffer tb = ByteBuffer.allocateDirect(textureCoordinates.length * 4);
-        tb.order(ByteOrder.nativeOrder());
-        textureBuffer = tb.asFloatBuffer();
-        textureBuffer.put(textureCoordinates);
-        textureBuffer.position(0);
+    // Compile and link shaders
+    private void compileAndLinkShaders() {
+        bgProgram = createProgram(bgVertexShaderCode, bgFragmentShaderCode);
+        mProgram = createProgram(vertexShaderCode, fragmentShaderCode);
+    }
 
-        // Compile the background shader
-        int bgVertexShader = loadShader(GLES20.GL_VERTEX_SHADER, bgVertexShaderCode);
-        int bgFragmentShader = loadShader(GLES20.GL_FRAGMENT_SHADER, bgFragmentShaderCode);
+    private int createProgram(String vertexCode, String fragmentCode) {
+        int vertexShader = loadShader(GLES20.GL_VERTEX_SHADER, vertexCode);
+        int fragmentShader = loadShader(GLES20.GL_FRAGMENT_SHADER, fragmentCode);
 
-        bgProgram = GLES20.glCreateProgram();
-        GLES20.glAttachShader(bgProgram, bgVertexShader);
-        GLES20.glAttachShader(bgProgram, bgFragmentShader);
-        GLES20.glLinkProgram(bgProgram);
+        int program = GLES20.glCreateProgram();
+        GLES20.glAttachShader(program, vertexShader);
+        GLES20.glAttachShader(program, fragmentShader);
+        GLES20.glLinkProgram(program);
 
-        // Check for linking errors
+        checkLinkStatus(program);
+        return program;
+    }
+
+    private void checkLinkStatus(int program) {
         int[] linkStatus = new int[1];
-        GLES20.glGetProgramiv(bgProgram, GLES20.GL_LINK_STATUS, linkStatus, 0);
+        GLES20.glGetProgramiv(program, GLES20.GL_LINK_STATUS, linkStatus, 0);
         if (linkStatus[0] != GLES20.GL_TRUE) {
-            String errorMsg = GLES20.glGetProgramInfoLog(bgProgram);
-            Log.e(TAG, "Error linking bgProgram: " + errorMsg);
+            String errorMsg = GLES20.glGetProgramInfoLog(program);
+            Log.e(TAG, "Error linking program: " + errorMsg);
         }
+    }
 
-
-        // Complie the shader and link program
-        int vertexShader = loadShader(GLES20.GL_VERTEX_SHADER, vertexShaderCode);
-        int fragmentShader = loadShader(GLES20.GL_FRAGMENT_SHADER, fragmentShaderCode);
-
-        mProgram = GLES20.glCreateProgram();
-        GLES20.glAttachShader(mProgram, vertexShader);
-        GLES20.glAttachShader(mProgram, fragmentShader);
-        GLES20.glLinkProgram(mProgram);
-
-        // Set up texture
+    private void setupTexture() {
         int[] textures = new int[1];
         GLES20.glGenTextures(1, textures, 0);
         textureId = textures[0];
@@ -164,85 +167,76 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
 
         surfaceTexture = new SurfaceTexture(textureId);
         surfaceTexture.setOnFrameAvailableListener(this);
+    }
 
-        // Set up MediaPlayer
+    private void initializeMediaPlayer() {
         mediaPlayer = MediaPlayer.create(getContext(), R.raw.test);
         mediaPlayer.setSurface(new Surface(surfaceTexture));
         mediaPlayer.setLooping(true);
         mediaPlayer.start();
     }
 
-    private void runOnUiThread(Runnable runnable) {
-        Context context = getContext();
-        if (context instanceof MainActivity) {
-            ((MainActivity) context).runOnUiThread(runnable);
-        }
+    @Override
+    public void onDrawFrame(GL10 gl) {
+        clearScreen();
+
+        drawBackground();
+        drawVideoFrame();
+
+        checkOpenGLErrors();
     }
 
-    public void onDrawFrame(GL10 gl) {
-        // Clear the screen
+    private void clearScreen() {
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
-    
-        // Use background Program
+    }
+
+    private void drawBackground() {
         GLES20.glUseProgram(bgProgram);
-    
-        // Get the position handle for the background
+
         int bgPositionHandle = GLES20.glGetAttribLocation(bgProgram, "vPosition");
-    
-        // Enable the vertex attribute array
         GLES20.glEnableVertexAttribArray(bgPositionHandle);
         GLES20.glVertexAttribPointer(bgPositionHandle, 3, GLES20.GL_FLOAT, false, vertexStride, bgVertexBuffer);
-    
-        // Set the background color
+
         int bgColorHandle = GLES20.glGetUniformLocation(bgProgram, "bgColor");
         GLES20.glUniform4fv(bgColorHandle, 1, color, 0);
-    
-        // Draw the background quad
+
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, vertexCount);
-    
-        // Disable the vertex attribute array
+
         GLES20.glDisableVertexAttribArray(bgPositionHandle);
-    
-        // Use the video frame program
+    }
+
+    private void drawVideoFrame() {
         GLES20.glUseProgram(mProgram);
-    
-        // Update the texture with the latest frame
         surfaceTexture.updateTexImage();
-    
-        // Activate the texture unit and bind the texture
+
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, textureId);
-    
-        // Set the texture uniform in the shader
+
         int textureUniformHandle = GLES20.glGetUniformLocation(mProgram, "uTexture");
         GLES20.glUniform1i(textureUniformHandle, 0);
-    
-        // Get position and texture coordinate handles
-        positionHandle = GLES20.glGetAttribLocation(mProgram, "vPosition");
-        textureHandle = GLES20.glGetAttribLocation(mProgram, "aTexCoord");
-    
-        // Enable vertex attribute arrays
+
+        int positionHandle = GLES20.glGetAttribLocation(mProgram, "vPosition");
+        int textureHandle = GLES20.glGetAttribLocation(mProgram, "aTexCoord");
+
         GLES20.glEnableVertexAttribArray(positionHandle);
         GLES20.glVertexAttribPointer(positionHandle, 3, GLES20.GL_FLOAT, false, vertexStride, vertexBuffer);
-    
+
         GLES20.glEnableVertexAttribArray(textureHandle);
         GLES20.glVertexAttribPointer(textureHandle, 2, GLES20.GL_FLOAT, false, 2 * 4, textureBuffer);
-    
-        // Draw the video frame
+
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, vertexCount);
-    
-        // Disable vertex attribute arrays
+
         GLES20.glDisableVertexAttribArray(positionHandle);
         GLES20.glDisableVertexAttribArray(textureHandle);
-    
-        // Check for OpenGL errors
+    }
+
+    private void checkOpenGLErrors() {
         int error = GLES20.glGetError();
         if (error != GLES20.GL_NO_ERROR) {
             Log.e("GL_ERROR", "OpenGL Error: " + error);
         }
     }
-    
-    
+
     @Override
     public void onSurfaceChanged(GL10 gl, int width, int height) {
         GLES20.glViewport(0, 0, width, height);
