@@ -16,6 +16,7 @@ import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.core.content.ContextCompat;
 import androidx.lifecycle.LifecycleOwner;
+import android.opengl.Matrix;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -45,14 +46,25 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
     private final int vertexCount = 4;
     private final int vertexStride = 3 * 4;
 
+    private float[] bgRotationMatrix = new float[16];
+    private float[] videoRotationMatrix = new float[16];
+    
+    private float[] bgMVPMatrix = new float[16];
+    private float[] videoMVPMatrix = new float[16];
+
+    private float bgRotationAngle = 270.0f;  // Background rotation angle in degrees
+    private float videoRotationAngle = 90.0f;  // Video rotation angle in degrees
+
+
     private boolean firstFrameReceived = false;
 
     private final String vertexShaderCode =
         "attribute vec4 vPosition;" +
         "attribute vec2 aTexCoord;" +
+        "uniform mat4 uMVPMatrix;" +  // MVP matrix to handle transformations
         "varying vec2 vTexCoord;" +
         "void main() {" +
-        "  gl_Position = vPosition;" +
+        "  gl_Position = uMVPMatrix * vPosition;" +
         "  vTexCoord = aTexCoord;" +
         "}";
     private final String fragmentShaderCode =
@@ -67,9 +79,10 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
     private final String bgVertexShaderCode =
         "attribute vec4 vPosition;" +
         "attribute vec2 aTexCoord;" +
+        "uniform mat4 uMVPMatrix;" +  // MVP matrix to handle transformations
         "varying vec2 vTexCoord;" +
         "void main() {" +
-        "  gl_Position = vPosition;" +
+        "  gl_Position = uMVPMatrix * vPosition;" +
         "  vTexCoord = aTexCoord;" +
         "}";
     
@@ -125,6 +138,8 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
         setupTextures();
         setupCameraX();
         initializeMediaPlayer();
+        Matrix.setIdentityM(bgRotationMatrix, 0);
+        Matrix.setIdentityM(videoRotationMatrix, 0);
     }
 
     // Initialize and set up vertex and texture buffers
@@ -196,29 +211,6 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
         surfaceTexture.setOnFrameAvailableListener(this);
     }
 
-    // private void setupCameraX() {
-    //     ProcessCameraProvider cameraProvider;
-    //     try {
-    //         cameraProvider = ProcessCameraProvider.getInstance(getContext()).get();
-    //     } catch (ExecutionException | InterruptedException e) {
-    //         Log.e(TAG, "Error setting up CameraX", e);
-    //         return;
-    //     }
-
-    //     Preview preview = new Preview.Builder().build();
-    //     preview.setSurfaceProvider(request -> {
-    //         Surface surface = new Surface(bgSurfaceTexture);
-    //         request.provideSurface(surface, ContextCompat.getMainExecutor(getContext()), result -> {
-    //             Log.d(TAG, "Surface provided for CameraX preview");
-    //         });
-    //     });
-
-    //     CameraSelector cameraSelector = new CameraSelector.Builder()
-    //         .requireLensFacing(CameraSelector.LENS_FACING_BACK)
-    //         .build();
-
-    //     cameraProvider.bindToLifecycle((LifecycleOwner) getContext(), cameraSelector, preview);
-    // }
     private void setupCameraX() {
         // Run CameraX setup on the main thread
         ContextCompat.getMainExecutor(getContext()).execute(() -> {
@@ -256,6 +248,10 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
     @Override
     public void onDrawFrame(GL10 gl) {
         clearScreen();
+        applyRotation(bgRotationMatrix, bgRotationAngle);
+        applyRotation(videoRotationMatrix, videoRotationAngle);
+        updateMVPMatrix(bgMVPMatrix, bgRotationMatrix);
+        updateMVPMatrix(videoMVPMatrix, videoRotationMatrix);
         drawBackground();
         drawVideoFrame();
         checkOpenGLErrors();
@@ -278,6 +274,9 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
 
         int bgPositionHandle = GLES20.glGetAttribLocation(bgProgram, "vPosition");
         int bgTextureCoordHandle = GLES20.glGetAttribLocation(bgProgram, "aTexCoord");
+
+        int bgMVPMatrixHandle = GLES20.glGetUniformLocation(bgProgram, "uMVPMatrix");
+        GLES20.glUniformMatrix4fv(bgMVPMatrixHandle, 1, false, bgMVPMatrix, 0);
 
         // Set the vertex attribute pointers
         GLES20.glEnableVertexAttribArray(bgPositionHandle);
@@ -306,6 +305,9 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
 
         int positionHandle = GLES20.glGetAttribLocation(mProgram, "vPosition");
         int textureHandle = GLES20.glGetAttribLocation(mProgram, "aTexCoord");
+
+        int mvpMatrixHandle = GLES20.glGetUniformLocation(mProgram, "uMVPMatrix");
+        GLES20.glUniformMatrix4fv(mvpMatrixHandle, 1, false, videoMVPMatrix, 0);
 
         GLES20.glEnableVertexAttribArray(positionHandle);
         GLES20.glVertexAttribPointer(positionHandle, 3, GLES20.GL_FLOAT, false, vertexStride, vertexBuffer);
@@ -347,6 +349,24 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
 
         return shader;
     }
+
+    private void applyRotation(float[] rotationMatrix, float angle) {
+        Matrix.setRotateM(rotationMatrix, 0, angle, 0, 0, 1);
+    }
+
+    private void updateMVPMatrix(float[] mvpMatrix, float[] rotationMatrix) {
+        Matrix.setIdentityM(mvpMatrix, 0);
+        Matrix.multiplyMM(mvpMatrix, 0, mvpMatrix, 0, rotationMatrix, 0);
+    }
+
+    public void setBackgroundRotation(float angle) {
+        this.bgRotationAngle = angle;
+    }
+    
+    public void setVideoRotation(float angle) {
+        this.videoRotationAngle = angle;
+    }
+    
 
     @Override
     public void onFrameAvailable(SurfaceTexture surfaceTexture) {

@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.SurfaceTexture;
 import android.util.Size;
 import android.view.Surface;
+import android.util.DisplayMetrics;
 
 import androidx.camera.core.Camera;
 import androidx.camera.core.CameraSelector;
@@ -22,6 +23,10 @@ public class CameraXTextureRenderer {
     private final SurfaceTexture surfaceTexture;
     private final int textureId;
     private Preview preview;
+    private DisplayMetrics displayMetrics;
+
+    private int deviceWidth;
+    private int deviceHeight;
 
     public CameraXTextureRenderer(Context context, SurfaceTexture surfaceTexture, int textureId) {
         this.context = context;
@@ -33,10 +38,14 @@ public class CameraXTextureRenderer {
         ListenableFuture<ProcessCameraProvider> cameraProviderFuture = ProcessCameraProvider.getInstance(context);
         cameraProviderFuture.addListener(() -> {
             try {
-                ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
+                ProcessCameraProvider cameraProvider = cameraProviderFuture.get();                
 
-                 preview = new Preview.Builder()
-                        .setTargetResolution(new Size(1280, 720)) // Set your desired resolution here
+                DisplayMetrics displayMetrics = context.getResources().getDisplayMetrics();
+                deviceWidth = displayMetrics.widthPixels;
+                deviceHeight = displayMetrics.heightPixels;
+            
+                preview = new Preview.Builder()
+                        .setTargetResolution(new Size(1920, 1080)) // Set your desired resolution here
                         .build();
 
                 preview.setSurfaceProvider(request -> {
