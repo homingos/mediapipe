@@ -187,9 +187,9 @@ public class MainActivity extends AppCompatActivity {
         };
         // float[] xyCoordinates = {
         //     -0.1f, 0.1f, // Top Left
-        //     0.8f, 0.8f, // Top Right
+        //     0.8f, 0.8f, // bottom left
         //     0.0f, 0.0f, // Bottom Right
-        //     0.5f, 0.5f // Bottom Left
+        //     0.5f, 0.5f // top right
         // };
         float[] planeCoordinates = convertToNDC(xyCoordinates, screenWidth, screenHeight);
         planeCoordinates = convertToXYZ(planeCoordinates);
