@@ -233,7 +233,7 @@ public class MainActivity extends AppCompatActivity {
                 0.0f, 0.0f,
                 0.0f, 0.0f,
                 0.0f, 0.0f,
-                0.0f, 0.0f
+                0.0f, 0.0f,
             };
         }
 
@@ -247,6 +247,12 @@ public class MainActivity extends AppCompatActivity {
             xyCoordinates = rearrangeCoordinates(xyCoordinates);
             Log.d(TAG, "XY coordinates " + Arrays.toString(xyCoordinates));
             float[] planeCoordinates = convertToNDC(xyCoordinates, screenWidth, screenHeight);
+            // planeCoordinates = new float[]{ 
+            //     -1.0f,  1.0f,   // top left
+            //     1.0f,  1.0f,   // top right
+            //    -1.0f, -1.0f,   // bottom left
+            //     1.0f, -1.0f,
+            // };
             planeCoordinates = convertToXYZ(planeCoordinates);
             mGLSurfView.setPlaneCoordinates(planeCoordinates);
         }
@@ -282,15 +288,23 @@ public class MainActivity extends AppCompatActivity {
     public float[] convertToNDC(float[] screenCoords, int screenWidth, int screenHeight) {
         float[] ndcCoords = new float[screenCoords.length];
         
-        float xCenter = screenWidth / 2.0f;
-        float yCenter = screenHeight / 2.0f;
+        // float xCenter = screenWidth / 2.0f;
+        // float yCenter = screenHeight / 2.0f;
         
+        // for (int i = 0; i < screenCoords.length; i += 2) {
+        //     // Convert x coordinate
+        //     ndcCoords[i] = 2.0f * (screenCoords[i] - xCenter) / screenWidth;
+            
+        //     // Convert y coordinate
+        //     ndcCoords[i + 1] = 2.0f * (yCenter - screenCoords[i + 1]) / screenHeight;
+        // }
+
         for (int i = 0; i < screenCoords.length; i += 2) {
             // Convert x coordinate
-            ndcCoords[i] = 2.0f * (screenCoords[i] - xCenter) / screenWidth;
+            ndcCoords[i+1] = -1.0f*screenCoords[i] / 632 + 0.5f;
             
             // Convert y coordinate
-            ndcCoords[i + 1] = 2.0f * (yCenter - screenCoords[i + 1]) / screenHeight;
+            ndcCoords[i] = -1.0f*screenCoords[i + 1] / 834 + 0.5f;
         }
         
         return ndcCoords;
