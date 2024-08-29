@@ -85,7 +85,6 @@ import android.os.Looper;
 import android.os.Handler;
 import android.widget.FrameLayout;
 
-
 /**
  * Main activity of MediaPipe basic app.
  */
@@ -93,7 +92,6 @@ public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "Aman Mediapipe";
     private static final String ASSET_URL_BASE = "https://storage.googleapis.com/avatar-system/test/assets/";
-
 
     // Flips the camera-preview frames vertically by default, before sending them
     // into FrameProcessor
@@ -178,7 +176,6 @@ public class MainActivity extends AppCompatActivity {
 
     private final ReentrantLock coordinatesLock = new ReentrantLock();
 
-
     // public void initialize(){
     //     frameLayout =  findViewById(R.id.preview_display_layout);
     //     mGLSurfView = new CustomGLSurfaceView(this);
@@ -199,23 +196,16 @@ public class MainActivity extends AppCompatActivity {
     //             0.0f, 0.0f
     //         };
     //     }
-
     //     Log.d(TAG,"coordinates " + Arrays.toString(xyCoordinates));
-
     //     xyCoordinates = rearrangeCoordinates(xyCoordinates);
-
     //     Log.e(TAG,"coordinates " + Arrays.toString(xyCoordinates));
-
     //     float[] planeCoordinates = convertToNDC(xyCoordinates, screenWidth, screenHeight);
     //     planeCoordinates = convertToXYZ(planeCoordinates);
     //     // float[] planeCoordinates = convertToXYZ(xyCoordinates);
     //     mGLSurfView.setPlaneCoordinates(planeCoordinates);
     //     frameLayout.addView(mGLSurfView);
     // }
-
-    
-
-    public void initialize(){
+    public void initialize() {
         frameLayout = findViewById(R.id.preview_display_layout);
         mGLSurfView = new CustomGLSurfaceView(this);
         screenWidth = ScreenUtils.getScreenWidth(this);
@@ -233,8 +223,7 @@ public class MainActivity extends AppCompatActivity {
                 0.0f, 0.0f,
                 0.0f, 0.0f,
                 0.0f, 0.0f,
-                0.0f, 0.0f,
-            };
+                0.0f, 0.0f,};
         }
 
         updateGLSurfaceViewCoordinates();
@@ -243,7 +232,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void updateGLSurfaceViewCoordinates() {
         coordinatesLock.lock();
-        try{
+        try {
             xyCoordinates = rearrangeCoordinates(xyCoordinates);
             Log.d(TAG, "XY coordinates " + Arrays.toString(xyCoordinates));
             float[] planeCoordinates = convertToNDC(xyCoordinates, screenWidth, screenHeight);
@@ -255,28 +244,27 @@ public class MainActivity extends AppCompatActivity {
             // };
             planeCoordinates = convertToXYZ(planeCoordinates);
             mGLSurfView.setPlaneCoordinates(planeCoordinates);
-        }
-        finally{
+        } finally {
             coordinatesLock.unlock();
         }
     }
 
     private float[] rearrangeCoordinates(float[] coordinates) {
         float[] rearranged = new float[coordinates.length];
-        
+
         // Rearrange to match the desired order
-        rearranged[0] = coordinates[6]; // Top-right x
-        rearranged[1] = coordinates[7]; // Top-right y
-        
-        rearranged[2] = coordinates[4]; // Bottom-right x
-        rearranged[3] = coordinates[5]; // Bottom-right y
-        
-        rearranged[4] = coordinates[0]; // Top-left x
-        rearranged[5] = coordinates[1]; // Top-left y
-        
-        rearranged[6] = coordinates[2]; // Bottom-left x
-        rearranged[7] = coordinates[3]; // Bottom-left y
-        
+        rearranged[0] = coordinates[0]; // Top-right x
+        rearranged[1] = coordinates[1]; // Top-right y
+
+        rearranged[2] = coordinates[6]; // Bottom-right x
+        rearranged[3] = coordinates[7]; // Bottom-right y
+
+        rearranged[4] = coordinates[2]; // Top-left x
+        rearranged[5] = coordinates[3]; // Top-left y
+
+        rearranged[6] = coordinates[4]; // Bottom-left x
+        rearranged[7] = coordinates[5]; // Bottom-left y
+
         // Ensure each value has an 'f' suffix
         for (int i = 0; i < rearranged.length; i++) {
             rearranged[i] = rearranged[i] * 1.0f;
@@ -287,29 +275,26 @@ public class MainActivity extends AppCompatActivity {
 
     public float[] convertToNDC(float[] screenCoords, int screenWidth, int screenHeight) {
         float[] ndcCoords = new float[screenCoords.length];
-        
+
         // float xCenter = screenWidth / 2.0f;
         // float yCenter = screenHeight / 2.0f;
-        
         // for (int i = 0; i < screenCoords.length; i += 2) {
         //     // Convert x coordinate
         //     ndcCoords[i] = 2.0f * (screenCoords[i] - xCenter) / screenWidth;
-            
         //     // Convert y coordinate
         //     ndcCoords[i + 1] = 2.0f * (yCenter - screenCoords[i + 1]) / screenHeight;
         // }
-
         for (int i = 0; i < screenCoords.length; i += 2) {
             // Convert x coordinate
-            ndcCoords[i+1] = -1.0f*screenCoords[i] / 632 + 0.5f;
-            
+            ndcCoords[i + 1] = -1.0f * screenCoords[i] / 632 + 0.5f;
+
             // Convert y coordinate
-            ndcCoords[i] = -1.0f*screenCoords[i + 1] / 834 + 0.5f;
+            ndcCoords[i] = -1.0f * screenCoords[i + 1] / 834 + 0.5f;
         }
-        
+
         return ndcCoords;
     }
-    
+
     private float[] convertToXYZ(float[] xyCoordinates) {
         float[] xyzCoordinates = new float[xyCoordinates.length / 2 * 3];
         for (int i = 0, j = 0; i < xyCoordinates.length; i += 2, j += 3) {
@@ -334,7 +319,7 @@ public class MainActivity extends AppCompatActivity {
 
         final String assetDir = this.getFilesDir().getAbsolutePath() + "/";
         downloadAssets();
-		Assets.copyFiles(getAssets(), assetDir + "/", true);
+        Assets.copyFiles(getAssets(), assetDir + "/", true);
 
         previewDisplayView = new SurfaceView(this);
         setupPreviewDisplayView();
@@ -370,14 +355,13 @@ public class MainActivity extends AppCompatActivity {
                     try {
                         float[] boxFloats = PacketGetter.getFloat32Vector(packet);
                         xyCoordinates = boxFloats;
-                        Log.e(TAG,"coordinates " + Arrays.toString(xyCoordinates));
+                        Log.e(TAG, "coordinates " + Arrays.toString(xyCoordinates));
                         // Log.d(TAG, "Box floats: " + Arrays.toString(boxFloats));
                         updateGLSurfaceViewCoordinates();
                         updateView(Arrays.toString(boxFloats));
                     } catch (Exception e) {
                         Log.e(TAG, "coordinates Error getting box floats: " + e.getMessage());
-                    }
-                    finally {
+                    } finally {
                         coordinatesLock.unlock();
                     }
                 }
@@ -656,72 +640,78 @@ public class MainActivity extends AppCompatActivity {
         updateView("Detection restarted"); // Update the UI
     }
 
-     private void downloadAssets() {
-		 final String assetDir = getFilesDir().getAbsolutePath() + "/";
-		 List<String> files = Arrays.asList("testcinema.ox3dv", "cinema.jpeg",
-				 "trex-attribution.txt", "trex.mtl", "trex.obj", "trex.png");
-		 for (String file : files) {
-			 String fileURL = ASSET_URL_BASE + file;
-			 downloadFile(fileURL, assetDir, file);
-		 }
-		 Assets.copyFiles(getAssets(), assetDir, true);
-	 }
- 
-	 private void downloadFile(final String fileURL, final String dirPath, final String fileName) {
-		 ExecutorService executor = Executors.newSingleThreadExecutor();
-		 Handler handler = new Handler(Looper.getMainLooper());
- 
-		 executor.execute(() -> {
-			 String result = performDownload(fileURL, dirPath, fileName);
-			 handler.post(() -> {
-				 // Update UI with result, e.g., display a message or update a view
-				 if (result != null) {
-					 Log.d(TAG, "Download successful: " + result);
-				 } else {
-					 Log.e(TAG, "Download failed");
-				 }
-			 });
-		 });
-	 }
- 
-	 private String performDownload(String fileURL, String dirPath, String fileName) {
-		 InputStream input = null;
-		 OutputStream output = null;
-		 HttpURLConnection urlConnection = null;
-		 try {
-			 File dir = new File(dirPath);
-			 if (!dir.exists() && !dir.mkdirs()) {
-				 Log.e(TAG, "Failed to create directory: " + dirPath);
-				 return null;
-			 }
- 
-			 URL url = new URL(fileURL);
-			 urlConnection = (HttpURLConnection) url.openConnection();
-			 urlConnection.setRequestMethod("GET");
-			 urlConnection.connect();
- 
-			 File file = new File(dir, fileName);
-			 output = new FileOutputStream(file);
- 
-			 input = urlConnection.getInputStream();
-			 byte[] buffer = new byte[4096];
-			 int byteCount;
-			 while ((byteCount = input.read(buffer)) != -1) {
-				 output.write(buffer, 0, byteCount);
-			 }
- 
-			 return file.getAbsolutePath();
-		 } catch (Exception e) {
-			 Log.e(TAG, "Error downloading file: " + e.getMessage(), e);
-			 return null;
-		 } finally {
-			 try {
-				 if (input != null) input.close();
-				 if (output != null) output.close();
-			 } catch (Exception e) {
-				 Log.e(TAG, "Error closing streams: " + e.getMessage(), e);
-			 }
-			 if (urlConnection != null) urlConnection.disconnect();
-		 }
-	 }
+    private void downloadAssets() {
+        final String assetDir = getFilesDir().getAbsolutePath() + "/";
+        List<String> files = Arrays.asList("testcinema.ox3dv", "cinema.jpeg",
+                "trex-attribution.txt", "trex.mtl", "trex.obj", "trex.png");
+        for (String file : files) {
+            String fileURL = ASSET_URL_BASE + file;
+            downloadFile(fileURL, assetDir, file);
+        }
+        Assets.copyFiles(getAssets(), assetDir, true);
+    }
+
+    private void downloadFile(final String fileURL, final String dirPath, final String fileName) {
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        Handler handler = new Handler(Looper.getMainLooper());
+
+        executor.execute(() -> {
+            String result = performDownload(fileURL, dirPath, fileName);
+            handler.post(() -> {
+                // Update UI with result, e.g., display a message or update a view
+                if (result != null) {
+                    Log.d(TAG, "Download successful: " + result);
+                } else {
+                    Log.e(TAG, "Download failed");
+                }
+            });
+        });
+    }
+
+    private String performDownload(String fileURL, String dirPath, String fileName) {
+        InputStream input = null;
+        OutputStream output = null;
+        HttpURLConnection urlConnection = null;
+        try {
+            File dir = new File(dirPath);
+            if (!dir.exists() && !dir.mkdirs()) {
+                Log.e(TAG, "Failed to create directory: " + dirPath);
+                return null;
+            }
+
+            URL url = new URL(fileURL);
+            urlConnection = (HttpURLConnection) url.openConnection();
+            urlConnection.setRequestMethod("GET");
+            urlConnection.connect();
+
+            File file = new File(dir, fileName);
+            output = new FileOutputStream(file);
+
+            input = urlConnection.getInputStream();
+            byte[] buffer = new byte[4096];
+            int byteCount;
+            while ((byteCount = input.read(buffer)) != -1) {
+                output.write(buffer, 0, byteCount);
+            }
+
+            return file.getAbsolutePath();
+        } catch (Exception e) {
+            Log.e(TAG, "Error downloading file: " + e.getMessage(), e);
+            return null;
+        } finally {
+            try {
+                if (input != null) {
+                    input.close();
+                }
+                if (output != null) {
+                    output.close();
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error closing streams: " + e.getMessage(), e);
+            }
+            if (urlConnection != null) {
+                urlConnection.disconnect();
+            }
+        }
+    }
 }
