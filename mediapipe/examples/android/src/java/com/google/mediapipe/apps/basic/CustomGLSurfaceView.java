@@ -6,10 +6,13 @@ import android.graphics.SurfaceTexture;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
+import android.media.MediaPlayer;
+import android.view.Surface;
 
 public class CustomGLSurfaceView extends GLSurfaceView {
 
-    private GLRenderer mGLRenderer;
+    private final GLRenderer mGLRenderer;
+    private MediaPlayer mediaPlayer;
 
     public CustomGLSurfaceView(Context context) {
         super(context);
@@ -39,6 +42,14 @@ public class CustomGLSurfaceView extends GLSurfaceView {
 
         };
         setRenderer(mGLRenderer);
+    }
+
+    public void initMediaplayer() {
+        SurfaceTexture surfaceTexture = mGLRenderer.getSurfaceTexture();
+        mediaPlayer = MediaPlayer.create(getContext(), R.raw.test);
+        mediaPlayer.setSurface(new Surface(surfaceTexture));
+        mediaPlayer.setLooping(true);
+        mediaPlayer.start();
     }
 
     public void setPlaneCoordinates(float[] coordinates) {

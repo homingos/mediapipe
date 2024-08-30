@@ -4,7 +4,7 @@ import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.graphics.SurfaceTexture;
 import android.opengl.GLUtils;
-import android.media.MediaPlayer;
+
 import android.content.Context;
 import android.view.Surface;
 import android.util.Log;
@@ -39,9 +39,8 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
     private int textureHandle;
     private int textureId;
     private int bgTextureId;
-    private SurfaceTexture surfaceTexture;
+    public SurfaceTexture surfaceTexture;
     private SurfaceTexture bgSurfaceTexture;
-    private MediaPlayer mediaPlayer;
 
     private final int vertexCount = 4;
     private final int vertexStride = 3 * 4;
@@ -117,6 +116,10 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
         1.0f, -1.0f, 0.0f // bottom right
     };
 
+    public SurfaceTexture getSurfaceTexture() {
+        return surfaceTexture;
+    }
+
     public void setPlaneCoordinates(float[] coordinates) {
         if (coordinates.length == 12) {
             vertexCoordinates = coordinates;
@@ -134,7 +137,6 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
         compileAndLinkShaders();
         setupTextures();
         setupCameraX();
-        initializeMediaPlayer();
         Matrix.setIdentityM(bgRotationMatrix, 0);
         Matrix.setIdentityM(videoRotationMatrix, 0);
     }
@@ -233,30 +235,6 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
 
             cameraProvider.bindToLifecycle((LifecycleOwner) getContext(), cameraSelector, preview);
         });
-    }
-
-    private void initializeMediaPlayer() {
-        mediaPlayer = MediaPlayer.create(getContext(), R.raw.test);
-        mediaPlayer.setSurface(new Surface(surfaceTexture));
-        mediaPlayer.setLooping(true);
-        mediaPlayer.start();
-    }
-
-    private Surface createSurfaceFromCoordinates(float[] coordinates) {
-        // Extract the width and height from the coordinates
-        // (Assumes the coordinates are in NDC, with -1 to 1 range)
-        float left = Math.min(coordinates[0], coordinates[4]);
-        float right = Math.max(coordinates[0], coordinates[4]);
-        float top = Math.max(coordinates[1], coordinates[5]);
-        float bottom = Math.min(coordinates[1], coordinates[5]);
-
-        int width = (int) ((right - left) / 2.0f * screenWidth);
-        int height = (int) ((top - bottom) / 2.0f * screenHeight);
-
-        // Create a Surface using the extracted dimensions
-        SurfaceTexture surfaceTexture = new SurfaceTexture(textureId);
-        Surface surface = new Surface(surfaceTexture);
-        return surface;
     }
 
     @Override
@@ -387,4 +365,5 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
     }
 
     protected abstract Context getContext();
+
 }

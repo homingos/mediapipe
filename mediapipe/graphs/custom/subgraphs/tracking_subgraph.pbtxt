@@ -5,8 +5,6 @@ input_stream: "input_frame"
 input_stream: "match_image"
 output_stream: "tracked_boxes"
 
-num_threads: 1
-
 node {
   calculator: "FlowLimiterCalculator"
   input_stream: "input_frame"

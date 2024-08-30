@@ -52,14 +52,14 @@ namespace mediapipe
                     }
 
                     // Calculate box corners
-                    std::array<Vector2_f, 4> corners = currentBox.Corners(input_props.first, input_props.second);
+                    std::array<Vector2_f, 4> corners = currentBox.Corners(input_props.second, input_props.first);
 
                     // Create and send output
                     std::vector<float> output_boxes;
                     for (const auto &corner : corners)
                     {
-                        output_boxes.push_back(corner.x());
-                        output_boxes.push_back(corner.y());
+                        output_boxes.push_back(((-2.0f * corner.y() /  (input_props.first))) + 1.0f);
+                        output_boxes.push_back(((-2.0f * corner.x() /  (input_props.second))) + 1.0f);
                     }
                     auto output_floats = absl::make_unique<std::vector<float>>(output_boxes);
                     cc->Outputs().Tag("BFLOATS").Add(output_floats.release(), cc->InputTimestamp());

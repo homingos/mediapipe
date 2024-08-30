@@ -233,14 +233,14 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public float[] convertToNDC(float[] screenCoords, int screenWidth, int screenHeight) {
-        float[] ndcCoords = new float[screenCoords.length];
-        // Convert screen coordinates to NDC
-        for (int i = 0; i < screenCoords.length; i += 2) {
-            ndcCoords[i + 1] = -1.0f * screenCoords[i] / (632 * 0.8f) + 1.0f;
-            ndcCoords[i] = -1.0f * screenCoords[i + 1] / (834 * 0.8f) + 1.0f;
-        }
+        // float[] ndcCoords = new float[screenCoords.length];
+        // // Convert screen coordinates to NDC
+        // for (int i = 0; i < screenCoords.length; i += 2) {
+        //     ndcCoords[i + 1] = -1.0f * screenCoords[i] / (632 * 0.8f) + 0.75f;
+        //     ndcCoords[i] = -1.0f * screenCoords[i + 1] / (834 * 0.8f) + 1.0f;
+        // }
 
-        return ndcCoords;
+        return screenCoords;
     }
 
     private float[] convertToXYZ(float[] xyCoordinates) {
@@ -306,7 +306,6 @@ public class MainActivity extends AppCompatActivity {
                         Log.e(TAG, "coordinates " + Arrays.toString(xyCoordinates));
                         // Log.d(TAG, "Box floats: " + Arrays.toString(boxFloats));
                         updateGLSurfaceViewCoordinates();
-                        updateView(Arrays.toString(boxFloats));
                     } catch (Exception e) {
                         Log.e(TAG, "coordinates Error getting box floats: " + e.getMessage());
                     } finally {
@@ -348,8 +347,12 @@ public class MainActivity extends AppCompatActivity {
                                     Packet imagePacket = processor.getPacketCreator().createRgbImageFrame(bitmap);
                                     processor.getGraph().addPacketToInputStream("match_image", imagePacket,
                                             System.currentTimeMillis());
-                                    processor.getGraph().addPacketToInputStream("enable_scanning", processor.getPacketCreator().createBool(false), System.currentTimeMillis());
+                                    processor.getGraph().addPacketToInputStream("enable_scanning",
+                                            processor.getPacketCreator().createBool(false), System.currentTimeMillis());
+                                    mGLSurfView.initMediaplayer();
+
                                     bitmap.recycle();
+
                                 } catch (ProtocolException ex) {
                                 } catch (IOException ex) {
                                 } finally {

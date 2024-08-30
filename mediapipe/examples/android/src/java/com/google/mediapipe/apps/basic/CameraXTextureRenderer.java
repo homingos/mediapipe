@@ -38,14 +38,14 @@ public class CameraXTextureRenderer {
         ListenableFuture<ProcessCameraProvider> cameraProviderFuture = ProcessCameraProvider.getInstance(context);
         cameraProviderFuture.addListener(() -> {
             try {
-                ProcessCameraProvider cameraProvider = cameraProviderFuture.get();                
+                ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
 
                 DisplayMetrics displayMetrics = context.getResources().getDisplayMetrics();
                 deviceWidth = displayMetrics.widthPixels;
                 deviceHeight = displayMetrics.heightPixels;
-            
+
                 preview = new Preview.Builder()
-                        .setTargetResolution(new Size(1920, 1080)) // Set your desired resolution here
+                        .setTargetResolution(new Size(1280, 720)) // Set your desired resolution here
                         .build();
 
                 preview.setSurfaceProvider(request -> {

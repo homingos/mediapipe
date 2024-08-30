@@ -9,7 +9,7 @@ output_stream: "rr_index"
 output_stream: "box_floats"
 
 num_threads: 4
-max_queue_size: 5
+max_queue_size: 30
 
 node {
   calculator: "GpuBufferToImageFrameCalculator"
@@ -82,7 +82,7 @@ node {
   }
   node_options: {
     [type.googleapis.com/mediapipe.FlowLimiterCalculatorOptions] {
-      max_in_flight: 5
+      max_in_flight: 1
     }
   }
   output_stream: "throttled_input_video_cpu"
@@ -99,8 +99,8 @@ node: {
       analysis_options {
         analysis_policy: ANALYSIS_POLICY_CAMERA_MOBILE
         flow_options {
-          fast_estimation_min_block_size: 1000
-          top_inlier_sets: 2
+          fast_estimation_min_block_size: 50
+          top_inlier_sets: 1
           frac_inlier_error_threshold: 3e-3
           downsample_mode: DOWNSAMPLE_TO_MIN_SIZE
           verification_distance: 2.3
