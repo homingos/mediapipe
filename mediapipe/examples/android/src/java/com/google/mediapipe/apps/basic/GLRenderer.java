@@ -48,77 +48,74 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
 
     private float[] bgRotationMatrix = new float[16];
     private float[] videoRotationMatrix = new float[16];
-    
+
     private float[] bgMVPMatrix = new float[16];
     private float[] videoMVPMatrix = new float[16];
 
     private float bgRotationAngle = 270.0f;  // Background rotation angle in degrees
     private float videoRotationAngle = 90.0f;  // Video rotation angle in degrees
 
-
     private boolean firstFrameReceived = false;
 
-    private final String vertexShaderCode =
-        "attribute vec4 vPosition;" +
-        "attribute vec2 aTexCoord;" +
-        "uniform mat4 uMVPMatrix;" +  // MVP matrix to handle transformations
-        "varying vec2 vTexCoord;" +
-        "void main() {" +
-        "  gl_Position = uMVPMatrix * vPosition;" +
-        "  vTexCoord = aTexCoord;" +
-        "}";
-    private final String fragmentShaderCode =
-        "#extension GL_OES_EGL_image_external : require \n" +
-        "precision mediump float;" +
-        "uniform samplerExternalOES uTexture;" +
-        "varying vec2 vTexCoord;" +
-        "void main() {" +
-        "  gl_FragColor = texture2D(uTexture, vTexCoord);" +
-        "}";
+    // Optimized shaders for performance
+    private final String vertexShaderCode
+            = "attribute vec4 vPosition;\n"
+            + "attribute vec2 aTexCoord;\n"
+            + "uniform mat4 uMVPMatrix;\n"
+            + "varying vec2 vTexCoord;\n"
+            + "void main() {\n"
+            + "  gl_Position = uMVPMatrix * vPosition;\n"
+            + "  vTexCoord = aTexCoord;\n"
+            + "}\n";
 
-    private final String bgVertexShaderCode =
-        "attribute vec4 vPosition;" +
-        "attribute vec2 aTexCoord;" +
-        "uniform mat4 uMVPMatrix;" +  // MVP matrix to handle transformations
-        "varying vec2 vTexCoord;" +
-        "void main() {" +
-        "  gl_Position = uMVPMatrix * vPosition;" +
-        "  vTexCoord = aTexCoord;" +
-        "}";
-    
-    // Fragment Shader for background
-    private final String bgFragmentShaderCode =
-    "#extension GL_OES_EGL_image_external : require \n" +
-    "precision mediump float;" +
-    "uniform samplerExternalOES bgTexture;" +
-    "varying vec2 vTexCoord;" +
-    "void main() {" +
-    "  gl_FragColor = texture2D(bgTexture, vTexCoord);" +
-    "}";
+    private final String fragmentShaderCode
+            = "#extension GL_OES_EGL_image_external : require\n"
+            + "precision mediump float;\n"
+            + "uniform samplerExternalOES uTexture;\n"
+            + "varying vec2 vTexCoord;\n"
+            + "void main() {\n"
+            + "  gl_FragColor = texture2D(uTexture, vTexCoord);\n"
+            + "}\n";
+
+    private final String bgVertexShaderCode
+            = "attribute vec4 vPosition;\n"
+            + "attribute vec2 aTexCoord;\n"
+            + "uniform mat4 uMVPMatrix;\n"
+            + "varying vec2 vTexCoord;\n"
+            + "void main() {\n"
+            + "  gl_Position = uMVPMatrix * vPosition;\n"
+            + "  vTexCoord = aTexCoord;\n"
+            + "}\n";
+
+    private final String bgFragmentShaderCode
+            = "#extension GL_OES_EGL_image_external : require\n"
+            + "precision mediump float;\n"
+            + "uniform samplerExternalOES bgTexture;\n"
+            + "varying vec2 vTexCoord;\n"
+            + "void main() {\n"
+            + "  gl_FragColor = texture2D(bgTexture, vTexCoord);\n"
+            + "}\n";
 
     private float vertexCoordinates[] = {
-        -1.0f,  1.0f, 0.0f,   // top left
-         1.0f,  1.0f, 0.0f,   // top right
-        -1.0f, -1.0f, 0.0f,   // bottom left
-         1.0f, -1.0f, 0.0f    // bottom right
+        -1.0f, 1.0f, 0.0f, // top left
+        1.0f, 1.0f, 0.0f, // top right
+        -1.0f, -1.0f, 0.0f, // bottom left
+        1.0f, -1.0f, 0.0f // bottom right
     };
 
     private float[] textureCoordinates = {
-        0.0f, 0.0f,  // top left
-        1.0f, 0.0f,  // top right
-        0.0f, 1.0f,  // bottom left
-        1.0f, 1.0f   // bottom right
+        0.0f, 0.0f, // top left
+        1.0f, 0.0f, // top right
+        0.0f, 1.0f, // bottom left
+        1.0f, 1.0f // bottom right
     };
 
     private float fullScreenVertexCoordinates[] = {
-        -1.0f,  1.0f, 0.0f,   // top left
-         1.0f,  1.0f, 0.0f,   // top right
-        -1.0f, -1.0f, 0.0f,   // bottom left
-         1.0f, -1.0f, 0.0f    // bottom right
+        -1.0f, 1.0f, 0.0f, // top left
+        1.0f, 1.0f, 0.0f, // top right
+        -1.0f, -1.0f, 0.0f, // bottom left
+        1.0f, -1.0f, 0.0f // bottom right
     };
-    
-
-    float color[] = { 1.0f, 0.0f, 0.0f, 1.0f }; // Red color
 
     public void setPlaneCoordinates(float[] coordinates) {
         if (coordinates.length == 12) {
@@ -221,7 +218,7 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
                 Log.e(TAG, "Error setting up CameraX", e);
                 return;
             }
-    
+
             Preview preview = new Preview.Builder().build();
             preview.setSurfaceProvider(request -> {
                 Surface surface = new Surface(bgSurfaceTexture);
@@ -229,20 +226,37 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
                     Log.d(TAG, "Surface provided for CameraX preview");
                 });
             });
-    
+
             CameraSelector cameraSelector = new CameraSelector.Builder()
-                .requireLensFacing(CameraSelector.LENS_FACING_BACK)
-                .build();
-    
+                    .requireLensFacing(CameraSelector.LENS_FACING_BACK)
+                    .build();
+
             cameraProvider.bindToLifecycle((LifecycleOwner) getContext(), cameraSelector, preview);
         });
     }
-    
+
     private void initializeMediaPlayer() {
         mediaPlayer = MediaPlayer.create(getContext(), R.raw.test);
         mediaPlayer.setSurface(new Surface(surfaceTexture));
         mediaPlayer.setLooping(true);
         mediaPlayer.start();
+    }
+
+    private Surface createSurfaceFromCoordinates(float[] coordinates) {
+        // Extract the width and height from the coordinates
+        // (Assumes the coordinates are in NDC, with -1 to 1 range)
+        float left = Math.min(coordinates[0], coordinates[4]);
+        float right = Math.max(coordinates[0], coordinates[4]);
+        float top = Math.max(coordinates[1], coordinates[5]);
+        float bottom = Math.min(coordinates[1], coordinates[5]);
+
+        int width = (int) ((right - left) / 2.0f * screenWidth);
+        int height = (int) ((top - bottom) / 2.0f * screenHeight);
+
+        // Create a Surface using the extracted dimensions
+        SurfaceTexture surfaceTexture = new SurfaceTexture(textureId);
+        Surface surface = new Surface(surfaceTexture);
+        return surface;
     }
 
     @Override
@@ -362,11 +376,10 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
     public void setBackgroundRotation(float angle) {
         this.bgRotationAngle = angle;
     }
-    
+
     public void setVideoRotation(float angle) {
         this.videoRotationAngle = angle;
     }
-    
 
     @Override
     public void onFrameAvailable(SurfaceTexture surfaceTexture) {

@@ -507,6 +507,7 @@ maven_install(
         "junit:junit:4.12",
         "org.hamcrest:hamcrest-library:1.3",
         "com.squareup.okhttp3:okhttp:4.9.3",
+        "com.android.volley:volley:1.1.0",
     ],
     repositories = [
         "https://maven.google.com",
@@ -679,6 +680,5 @@ http_archive(
     urls = ["https://github.com/nlohmann/json/releases/download/v3.9.1/include.zip"],
     build_file = "@//third_party:nlohmann.BUILD",
 )
-
-android_sdk_repository(name = "androidsdk", path = "/root/Android/Sdk")
-android_ndk_repository(name = "androidndk", api_level=21, path = "/root/Android/Sdk/ndk-bundle/android-ndk-r21")
+android_sdk_repository(name = "androidsdk", path = "/Users/debadityasen/Android/Sdk")
+android_ndk_repository(name = "androidndk", api_level=21, path = "/Users/debadityasen/Android/Sdk/ndk-bundle/android-ndk-r21")

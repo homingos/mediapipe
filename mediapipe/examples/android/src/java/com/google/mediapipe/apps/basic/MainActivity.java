@@ -176,47 +176,11 @@ public class MainActivity extends AppCompatActivity {
 
     private final ReentrantLock coordinatesLock = new ReentrantLock();
 
-    // public void initialize(){
-    //     frameLayout =  findViewById(R.id.preview_display_layout);
-    //     mGLSurfView = new CustomGLSurfaceView(this);
-    //     screenWidth = ScreenUtils.getScreenWidth(this);
-    //     screenHeight = ScreenUtils.getScreenHeight(this);
-    //     // float x = 1.0;
-    //     // float[] xyCoordinates = {
-    //     //     -22.299046f, 379.2182f,
-    //     //     -180.87448f, 657.33734f,
-    //     //     154.47157f, 858.98804f,
-    //     //     163.44731f, 428.62915f
-    //     // };
-    //     if(xyCoordinates == null){
-    //         xyCoordinates = new float[]{
-    //             0.0f, 0.0f,
-    //             0.0f, 0.0f,
-    //             0.0f, 0.0f,
-    //             0.0f, 0.0f
-    //         };
-    //     }
-    //     Log.d(TAG,"coordinates " + Arrays.toString(xyCoordinates));
-    //     xyCoordinates = rearrangeCoordinates(xyCoordinates);
-    //     Log.e(TAG,"coordinates " + Arrays.toString(xyCoordinates));
-    //     float[] planeCoordinates = convertToNDC(xyCoordinates, screenWidth, screenHeight);
-    //     planeCoordinates = convertToXYZ(planeCoordinates);
-    //     // float[] planeCoordinates = convertToXYZ(xyCoordinates);
-    //     mGLSurfView.setPlaneCoordinates(planeCoordinates);
-    //     frameLayout.addView(mGLSurfView);
-    // }
     public void initialize() {
         frameLayout = findViewById(R.id.preview_display_layout);
         mGLSurfView = new CustomGLSurfaceView(this);
         screenWidth = ScreenUtils.getScreenWidth(this);
         screenHeight = ScreenUtils.getScreenHeight(this);
-        // float[] xyCoordinates = {
-        //     -22.299046f, 379.2182f,
-        //     -180.87448f, 657.33734f,
-        //     154.47157f, 858.98804f,
-        //     163.44731f, 428.62915f
-        // };
-
         // Initial coordinate setup
         if (xyCoordinates == null) {
             xyCoordinates = new float[]{
@@ -265,31 +229,15 @@ public class MainActivity extends AppCompatActivity {
         rearranged[6] = coordinates[4]; // Bottom-left x
         rearranged[7] = coordinates[5]; // Bottom-left y
 
-        // Ensure each value has an 'f' suffix
-        for (int i = 0; i < rearranged.length; i++) {
-            rearranged[i] = rearranged[i] * 1.0f;
-        }
-
         return rearranged;
     }
 
     public float[] convertToNDC(float[] screenCoords, int screenWidth, int screenHeight) {
         float[] ndcCoords = new float[screenCoords.length];
-
-        // float xCenter = screenWidth / 2.0f;
-        // float yCenter = screenHeight / 2.0f;
-        // for (int i = 0; i < screenCoords.length; i += 2) {
-        //     // Convert x coordinate
-        //     ndcCoords[i] = 2.0f * (screenCoords[i] - xCenter) / screenWidth;
-        //     // Convert y coordinate
-        //     ndcCoords[i + 1] = 2.0f * (yCenter - screenCoords[i + 1]) / screenHeight;
-        // }
+        // Convert screen coordinates to NDC
         for (int i = 0; i < screenCoords.length; i += 2) {
-            // Convert x coordinate
-            ndcCoords[i + 1] = -1.0f * screenCoords[i] / 632 + 0.5f;
-
-            // Convert y coordinate
-            ndcCoords[i] = -1.0f * screenCoords[i + 1] / 834 + 0.5f;
+            ndcCoords[i + 1] = -1.0f * screenCoords[i] / (632 * 0.8f) + 1.0f;
+            ndcCoords[i] = -1.0f * screenCoords[i + 1] / (834 * 0.8f) + 1.0f;
         }
 
         return ndcCoords;

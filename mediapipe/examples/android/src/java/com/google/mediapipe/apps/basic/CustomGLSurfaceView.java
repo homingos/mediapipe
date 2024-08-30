@@ -31,11 +31,12 @@ public class CustomGLSurfaceView extends GLSurfaceView {
             public void onSurfaceChanged(GL10 gl, int width, int height) {
                 // Override this method if needed
             }
+
             @Override
             public void onFrameAvailable(SurfaceTexture surfaceTexture) {
                 // Handle the frame available event here
             }
-            
+
         };
         setRenderer(mGLRenderer);
     }
