@@ -11,7 +11,8 @@
 #include "mediapipe/framework/tool/options_util.h"
 #include "absl/memory/memory.h"
 #include "absl/synchronization/blocking_counter.h"
-
+#include "absl/synchronization/mutex.h"
+#include "mediapipe/util/tracking/parallel_invoker.h"
 namespace mediapipe
 {
 
@@ -59,38 +60,44 @@ namespace mediapipe
             std::vector<int> match_counts(qfeatures.size(), -1);
 
             // Process each query image
-            for (int selectionIndex = 0; selectionIndex < qfeatures.size(); ++selectionIndex)
-            {
-                const auto &encoded_descriptor = qfeatures[selectionIndex];
+            ParallelFor(0, qfeatures.size(), 1,
+                        [this, &qfeatures, &features, &match_counts](const BlockedRange &b)
+                        {
+                            for (int selectionIndex = b.begin(); selectionIndex != b.end();
+                                 ++selectionIndex)
+                            {
+                                const auto &encoded_descriptor = qfeatures[selectionIndex];
 
-                // Deserialize query features for this image
-                cv::Mat query_descriptors;
-                try
-                {
-                    query_descriptors = deserialize_orb_descriptors(encoded_descriptor);
-                }
-                catch (const std::runtime_error &e)
-                {
-                    LOG(ERROR) << "Failed to deserialize ORB descriptors: " << e.what();
-                    return absl::InternalError("Failed to deserialize ORB descriptors.");
-                }
+                                // Deserialize query features for this image
+                                cv::Mat query_descriptors;
+                                try
+                                {
+                                    query_descriptors = deserialize_orb_descriptors(encoded_descriptor);
+                                }
+                                catch (const std::runtime_error &e)
+                                {
+                                    LOG(ERROR) << "Failed to deserialize ORB descriptors: " << e.what();
+                                    return absl::InternalError("Failed to deserialize ORB descriptors.");
+                                }
 
-                // Perform matching
-                std::vector<std::vector<cv::DMatch>> matches;
-                matcher_->knnMatch(query_descriptors, features, matches, 2); // k=2 for ratio test
+                                // Perform matching
+                                std::vector<std::vector<cv::DMatch>> matches;
+                                matcher_->knnMatch(query_descriptors, features, matches, 2); // k=2 for ratio test
 
-                // Apply ratio test and count matches
-                int localMatchCount = 0;
-                for (const auto &match : matches)
-                {
-                    if (match.size() == 2 && match[0].distance < 0.75f * match[1].distance)
-                    {
-                        localMatchCount++;
-                    }
-                }
-                match_counts[selectionIndex] = localMatchCount;
-                ABSL_LOG(INFO) << "SCORES: " << match_counts[selectionIndex];
-            }
+                                // Apply ratio test and count matches
+                                int localMatchCount = 0;
+                                for (const auto &match : matches)
+                                {
+                                    if (match.size() == 2 &&
+                                        match[0].distance < 0.75f * match[1].distance)
+                                    {
+                                        localMatchCount++;
+                                    }
+                                }
+                                match_counts[selectionIndex] = localMatchCount;
+                                ABSL_LOG(INFO) << "SCORES: " << match_counts[selectionIndex];
+                            }
+                        });
 
             // Find the index with the maximum match count
             int max_index = -1;

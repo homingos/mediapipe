@@ -14,6 +14,8 @@
 #include "absl/synchronization/blocking_counter.h"
 #include "mediapipe/util/tracking/box_tracker.pb.h"
 #include "mediapipe/util/tracking/box_tracker.h"
+#include "absl/synchronization/mutex.h"
+#include "mediapipe/util/tracking/parallel_invoker.h"
 #include "absl/status/status.h"
 #include <omp.h>
 namespace mediapipe
@@ -43,8 +45,8 @@ namespace mediapipe
         {
             cc->SetOffset(::mediapipe::TimestampDiff(0));
 
-            feature_detector_ = cv::AKAZE::create(cv::AKAZE::DESCRIPTOR_MLDB, 200);
-            matcher_ = cv::makePtr<cv::FlannBasedMatcher>(cv::makePtr<cv::flann::LshIndexParams>(20, 10, 2));
+            feature_detector_ = cv::AKAZE::create(cv::AKAZE::DESCRIPTOR_MLDB, 300);
+            matcher_ = cv::makePtr<cv::FlannBasedMatcher>(cv::makePtr<cv::flann::LshIndexParams>(20, 10, 3));
             pool_ = absl::make_unique<mediapipe::ThreadPool>("TrackingPool", kNumThreads);
             pool_->StartWorkers();
             match_found_ = false;
@@ -55,33 +57,28 @@ namespace mediapipe
         absl::Status Process(CalculatorContext *cc) override
         {
             auto f_empty = match_found_;
-            if (f_empty && dets > 1000)
+
+            if (!cc->Inputs().Tag("SECONDARY_IMAGE").IsEmpty())
+            {
+                ABSL_LOG(INFO) << "FEEDBACK_I is empty" << f_empty;
+                if (cc->Inputs().Tag("PRIMARY_IMAGE").IsEmpty())
+                {
+                    ABSL_LOG(INFO) << "PRIMARY_IMAGE is empty";
+                    return absl::OkStatus();
+                }
+                const auto &secondary_image =
+                    cc->Inputs().Tag("SECONDARY_IMAGE").Get<ImageFrame>();
+                const auto &primary_image =
+                    cc->Inputs().Tag("PRIMARY_IMAGE").Get<ImageFrame>();
+                // Process and copy the SECONDARY_IMAGE packet to LOOP_IMAGE
+                return ProcessAndCopy(cc, primary_image, secondary_image);
+            }
+            // Check if PRIMARY_IMAGE is empty
+            if (cc->Inputs().Tag("PRIMARY_IMAGE").IsEmpty())
             {
                 return absl::OkStatus();
             }
-            else
-            {
-                if (!cc->Inputs().Tag("SECONDARY_IMAGE").IsEmpty())
-                {
-                    ABSL_LOG(INFO) << "FEEDBACK_I is empty" << f_empty;
-                    if (cc->Inputs().Tag("PRIMARY_IMAGE").IsEmpty())
-                    {
-                        ABSL_LOG(INFO) << "PRIMARY_IMAGE is empty";
-                        return absl::OkStatus();
-                    }
-                    const auto &secondary_image =
-                        cc->Inputs().Tag("SECONDARY_IMAGE").Get<ImageFrame>();
-                    const auto &primary_image =
-                        cc->Inputs().Tag("PRIMARY_IMAGE").Get<ImageFrame>();
-                    // Process and copy the SECONDARY_IMAGE packet to LOOP_IMAGE
-                    return ProcessAndCopy(cc, primary_image, secondary_image);
-                }
-                // Check if PRIMARY_IMAGE is empty
-                if (cc->Inputs().Tag("PRIMARY_IMAGE").IsEmpty())
-                {
-                    return absl::OkStatus();
-                }
-            }
+
             return absl::OkStatus();
         }
 
@@ -165,28 +162,68 @@ namespace mediapipe
 
                 const float ratio_thresh = 0.75f;
                 std::vector<cv::DMatch> good_matches;
-                for (size_t i = 0; i < knn_matches.size(); i++)
-                {
-                    if (knn_matches[i][0].distance <
-                        ratio_thresh * knn_matches[i][1].distance)
-                    {
-                        good_matches.push_back(knn_matches[i][0]);
-                    }
-                }
+
+                ParallelFor(0, knn_matches.size(), 1,
+                            [&knn_matches, &good_matches, ratio_thresh](const BlockedRange &b)
+                            {
+                                for (size_t i = b.begin(); i != b.end(); ++i)
+                                {
+                                    if (knn_matches[i][0].distance < ratio_thresh * knn_matches[i][1].distance)
+                                    {
+                                        good_matches.push_back(knn_matches[i][0]);
+                                    }
+                                }
+                            });
 
                 // Find homography matrix.
                 std::vector<cv::Point2f> primary_points, secondary_points;
-                for (const auto &match : good_matches)
+                ParallelFor(0, good_matches.size(), 1,
+                            [&good_matches, &primary_keypoints, &secondary_keypoints,
+                             &primary_points, &secondary_points](const BlockedRange &b)
+                            {
+                                for (size_t i = b.begin(); i != b.end(); ++i)
+                                {
+                                    const auto &match = good_matches[i];
+                                    primary_points.push_back(primary_keypoints[match.queryIdx].pt);
+                                    secondary_points.push_back(secondary_keypoints[match.trainIdx].pt);
+                                }
+                            });
+
+                // Estimate fundamental matrix
+                cv::Mat fundamental_matrix = cv::findFundamentalMat(primary_points, secondary_points, cv::FM_RANSAC);
+
+                // Filter matches using epipolar constraint
+                std::vector<cv::DMatch> epipolar_matches;
+                std::vector<cv::Point2f> filtered_primary_points, filtered_secondary_points;
+                const double epipolar_thresh = 3.0; // Adjust this threshold as needed
+
+                for (size_t i = 0; i < primary_points.size(); ++i)
                 {
-                    primary_points.push_back(primary_keypoints[match.queryIdx].pt);
-                    secondary_points.push_back(secondary_keypoints[match.trainIdx].pt);
+                    cv::Mat point1 = (cv::Mat_<double>(3, 1) << primary_points[i].x, primary_points[i].y, 1);
+                    cv::Mat point2 = (cv::Mat_<double>(3, 1) << secondary_points[i].x, secondary_points[i].y, 1);
+
+                    // Calculate epipolar line
+                    cv::Mat epiline = fundamental_matrix * point1;
+
+                    // Calculate distance to epipolar line
+                    double a = epiline.at<double>(0);
+                    double b = epiline.at<double>(1);
+                    double c = epiline.at<double>(2);
+                    double dist = std::abs(a * point2.at<double>(0) + b * point2.at<double>(1) + c) / std::sqrt(a * a + b * b);
+
+                    if (dist < epipolar_thresh)
+                    {
+                        epipolar_matches.push_back(good_matches[i]);
+                        filtered_primary_points.push_back(primary_points[i]);
+                        filtered_secondary_points.push_back(secondary_points[i]);
+                    }
                 }
 
+                // Find homography matrix using filtered matches
                 cv::Mat homography;
-                ABSL_LOG(INFO) << primary_points.size() << secondary_points.size();
-                if (primary_points.size() >= 20 && secondary_points.size() >= 20)
+                if (filtered_primary_points.size() >= 20 && filtered_secondary_points.size() >= 20)
                 {
-                    homography = cv::findHomography(secondary_points, primary_points, cv::RANSAC);
+                    homography = cv::findHomography(filtered_secondary_points, filtered_primary_points, cv::RANSAC);
                     // use a weighted average
                     // double weight = MAX_CHANGE_THRESHOLD / change;
                     // homography = weight * homography + (1 - weight) * previousHomography;

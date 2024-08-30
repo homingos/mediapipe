@@ -79,7 +79,6 @@ android_binary(
         "cameraFacingFront": "False",
         "binaryGraphName": "mobile_gpu.binarypb",
         "inputVideoStreamName": "input_video",
-        "outputVideoStreamName": "output_video",
         "flipFramesVertically": "True",
         "converterNumBuffers": "2",
     },
@@ -87,6 +86,5 @@ android_binary(
     deps = [
         ":basic_lib",
         ":mediapipe_jni_lib",
-        
     ],
 )

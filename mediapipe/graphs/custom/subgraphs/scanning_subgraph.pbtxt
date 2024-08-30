@@ -57,6 +57,7 @@ node {
   output_stream: "RESULT:rr_index"
 }
 
+
 node {
   calculator: "ImageTransformationCalculator"
   input_stream: "IMAGE:throttled_input_video_cpu"
@@ -88,7 +89,7 @@ node {
   options: {
     [mediapipe.TfLiteInferenceCalculatorOptions.ext] {
       model_path: "assets/model.tflite"
-      delegate { tflite {} }
+      delegate { gpu {} }
     }
   }
 }

@@ -79,36 +79,8 @@ namespace mediapipe
             std::vector<cv::Point> approx;
             cv::approxPolyDP(*max_contour, approx, 0.02 * cv::arcLength(*max_contour, true), true);
 
-            // If we have a quadrilateral, perform perspective transform
-            if (approx.size() == 4)
-            {
-                cv::Point2f src_pts[4], dst_pts[4];
-                for (int i = 0; i < 4; i++)
-                {
-                    src_pts[i] = cv::Point2f(approx[i].x, approx[i].y);
-                }
-
-                // Sort points to ensure consistent ordering
-                std::sort(src_pts, src_pts + 4, [](const cv::Point2f &a, const cv::Point2f &b)
-                          { return a.x + a.y < b.x + b.y; });
-
-                // Define destination points for a rectangle
-                cv::Rect bounds = cv::boundingRect(approx);
-                dst_pts[0] = cv::Point2f(0, 0);
-                dst_pts[1] = cv::Point2f(bounds.width - 1, 0);
-                dst_pts[2] = cv::Point2f(bounds.width - 1, bounds.height - 1);
-                dst_pts[3] = cv::Point2f(0, bounds.height - 1);
-
-                cv::Mat transform = cv::getPerspectiveTransform(src_pts, dst_pts);
-                cv::Mat result;
-                cv::warpPerspective(image, result, transform, bounds.size());
-                return result;
-            }
-            else
-            {
-                // If not a quadrilateral, just return the bounding rectangle
-                return image(cv::boundingRect(approx));
-            }
+            // If not a quadrilateral, just return the bounding rectangle
+            return image(cv::boundingRect(approx));
         }
     };
 

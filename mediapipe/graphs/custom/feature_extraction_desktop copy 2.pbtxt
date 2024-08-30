@@ -8,8 +8,7 @@ output_stream: "output_tensor_floats"
 output_stream: "rr_index"
 output_stream: "box_floats"
 
-num_threads: 4
-max_queue_size: 5
+num_threads: 3
 
 node {
   calculator: "GpuBufferToImageFrameCalculator"
@@ -45,8 +44,14 @@ node {
 }
 
 node {
+    calculator: "PictureLocalizationCalculator"
+    input_stream: "IMAGE:scanning_frame_enabled"
+    output_stream: "IMAGE:scanning_frame_enabled_cropped"
+}
+
+node {
   calculator: "ScanningSubgraph"
-  input_stream: "scanning_frame_enabled"
+  input_stream: "scanning_frame_enabled_cropped"
   input_stream: "query_feats"
   output_stream: "FLOATS:output_tensor_floats"
   output_stream: "rr_index"
@@ -66,8 +71,24 @@ node {
 }
 
 node {
-  calculator: "TrackingSubgraph"
+  calculator: "FlowLimiterCalculator"
   input_stream: "tracking_frame_enabled"
+  input_stream: "FINISHED:box_output"
+  input_stream_info: {
+    tag_index: "FINISHED"
+    back_edge: true
+  }
+  node_options: {
+    [type.googleapis.com/mediapipe.FlowLimiterCalculatorOptions] {
+      max_in_flight: 2
+    }
+  }
+  output_stream: "throttled_tracking_frame_enabled"
+}
+
+node {
+  calculator: "TrackingSubgraph"
+  input_stream: "throttled_tracking_frame_enabled"
   input_stream: "match_image"
   output_stream: "box_output"
 }
@@ -82,7 +103,7 @@ node {
   }
   node_options: {
     [type.googleapis.com/mediapipe.FlowLimiterCalculatorOptions] {
-      max_in_flight: 5
+      max_in_flight: 2
     }
   }
   output_stream: "throttled_input_video_cpu"
@@ -99,8 +120,8 @@ node: {
       analysis_options {
         analysis_policy: ANALYSIS_POLICY_CAMERA_MOBILE
         flow_options {
-          fast_estimation_min_block_size: 1000
-          top_inlier_sets: 2
+          fast_estimation_min_block_size: 50
+          top_inlier_sets: 1
           frac_inlier_error_threshold: 3e-3
           downsample_mode: DOWNSAMPLE_TO_MIN_SIZE
           verification_distance: 2.3
@@ -169,10 +190,9 @@ node: {
           tracking_degrees: TRACKING_DEGREE_OBJECT_PERSPECTIVE
           inlier_spring_force: 0.0
           static_motion_temporal_ratio: 3e-2
-          forced_pnp_tracking: true
         }
       }
-      streaming_track_data_cache_size: 100
+      streaming_track_data_cache_size: 500
     }
   }
 }

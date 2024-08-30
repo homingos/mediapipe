@@ -67,12 +67,11 @@ android_binary(
         "inputVideoStreamName": "input_video_gpu",
         "outputVideoStreamName": "output_video",
         "flipFramesVertically": "True",
-        "converterNumBuffers": "50",
+        "converterNumBuffers": "30",
     },
     multidex = "native",
     deps = [
         ":mediapipe_jni_lib",
         "//mediapipe/examples/android/src/java/com/google/mediapipe/apps/basic:basic_lib",
-        "//third_party:opencv",
     ],
 )

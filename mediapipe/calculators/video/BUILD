@@ -120,6 +120,19 @@ cc_library(
 )
 
 cc_library(
+    name = "video_stream_switcher_calculator",
+    srcs = ["video_stream_switcher_calculator.cc"],
+    deps = [
+        "//mediapipe/framework:calculator_framework",
+        "//mediapipe/framework/formats:image_frame",
+        "//mediapipe/framework/port:status",
+        "//mediapipe/framework/tool:status_util",
+        "@com_google_absl//absl/log:absl_log",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "opencv_video_decoder_calculator",
     srcs = ["opencv_video_decoder_calculator.cc"],
     deps = [
