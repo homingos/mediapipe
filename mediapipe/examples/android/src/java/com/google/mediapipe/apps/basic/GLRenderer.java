@@ -57,64 +57,15 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
     private boolean firstFrameReceived = false;
 
     // Optimized shaders for performance
-    private final String vertexShaderCode
-            = "attribute vec4 vPosition;\n"
-            + "attribute vec2 aTexCoord;\n"
-            + "uniform mat4 uMVPMatrix;\n"
-            + "varying vec2 vTexCoord;\n"
-            + "void main() {\n"
-            + "  gl_Position = uMVPMatrix * vPosition;\n"
-            + "  vTexCoord = aTexCoord;\n"
-            + "}\n";
+    private final String vertexShaderCode = ShaderManager.vertexShaderCode;
+    private final String fragmentShaderCode = ShaderManager.fragmentShaderCode;
+    private final String bgVertexShaderCode = ShaderManager.bgVertexShaderCode;
+    private final String bgFragmentShaderCode = ShaderManager.bgFragmentShaderCode;
 
-    private final String fragmentShaderCode
-            = "#extension GL_OES_EGL_image_external : require\n"
-            + "precision mediump float;\n"
-            + "uniform samplerExternalOES uTexture;\n"
-            + "varying vec2 vTexCoord;\n"
-            + "void main() {\n"
-            + "  gl_FragColor = texture2D(uTexture, vTexCoord);\n"
-            + "}\n";
-
-    private final String bgVertexShaderCode
-            = "attribute vec4 vPosition;\n"
-            + "attribute vec2 aTexCoord;\n"
-            + "uniform mat4 uMVPMatrix;\n"
-            + "varying vec2 vTexCoord;\n"
-            + "void main() {\n"
-            + "  gl_Position = uMVPMatrix * vPosition;\n"
-            + "  vTexCoord = aTexCoord;\n"
-            + "}\n";
-
-    private final String bgFragmentShaderCode
-            = "#extension GL_OES_EGL_image_external : require\n"
-            + "precision mediump float;\n"
-            + "uniform samplerExternalOES bgTexture;\n"
-            + "varying vec2 vTexCoord;\n"
-            + "void main() {\n"
-            + "  gl_FragColor = texture2D(bgTexture, vTexCoord);\n"
-            + "}\n";
-
-    private float vertexCoordinates[] = {
-        -1.0f, 1.0f, 0.0f, // top left
-        1.0f, 1.0f, 0.0f, // top right
-        -1.0f, -1.0f, 0.0f, // bottom left
-        1.0f, -1.0f, 0.0f // bottom right
-    };
-
-    private float[] textureCoordinates = {
-        0.0f, 0.0f, // top left
-        1.0f, 0.0f, // top right
-        0.0f, 1.0f, // bottom left
-        1.0f, 1.0f // bottom right
-    };
-
-    private float fullScreenVertexCoordinates[] = {
-        -1.0f, 1.0f, 0.0f, // top left
-        1.0f, 1.0f, 0.0f, // top right
-        -1.0f, -1.0f, 0.0f, // bottom left
-        1.0f, -1.0f, 0.0f // bottom right
-    };
+    // Plane data
+    private float vertexCoordinates[] = PlaneData.vertexCoordinates;
+    private float[] textureCoordinates = PlaneData.textureCoordinates;
+    private float fullScreenVertexCoordinates[] = PlaneData.fullScreenVertexCoordinates;
 
     public SurfaceTexture getSurfaceTexture() {
         return surfaceTexture;
@@ -208,6 +159,7 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
         GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
 
         surfaceTexture = new SurfaceTexture(textureId);
+        surfaceTexture.setDefaultBufferSize(1280, 720);
         surfaceTexture.setOnFrameAvailableListener(this);
     }
 
@@ -366,5 +318,4 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
     }
 
     protected abstract Context getContext();
-
 }

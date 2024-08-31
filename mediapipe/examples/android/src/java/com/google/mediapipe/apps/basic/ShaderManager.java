@@ -3,24 +3,43 @@ package com.google.mediapipe.apps.basic;
 public class ShaderManager {
 
     //#region Primary Shaders
-    
+    public static final String vertexShaderCode
+    = "attribute vec4 vPosition;\n"
+    + "attribute vec2 aTexCoord;\n"
+    + "uniform mat4 uMVPMatrix;\n"
+    + "varying vec2 vTexCoord;\n"
+    + "void main() {\n"
+    + "  gl_Position = uMVPMatrix * vPosition;\n"
+    + "  vTexCoord = aTexCoord;\n"
+    + "}\n";
 
-    public static final String VERTEX_SHADER_CODE =
-        "attribute vec4 vPosition;" +
-        "attribute vec2 a_TexCoordinate;" +
-        "varying vec2 v_TexCoordinate;" +
-        "void main() {" +
-        "  gl_Position = vPosition;" +
-        "  v_TexCoordinate = a_TexCoordinate;" +
-        "}";
+    public static final String fragmentShaderCode
+        = "#extension GL_OES_EGL_image_external : require\n"
+        + "precision mediump float;\n"
+        + "uniform samplerExternalOES uTexture;\n"
+        + "varying vec2 vTexCoord;\n"
+        + "void main() {\n"
+        + "  gl_FragColor = texture2D(uTexture, vTexCoord);\n"
+        + "}\n";
 
-    public static final String FRAGMENT_SHADER_CODE =
-        "precision mediump float;" +
-        "uniform sampler2D u_Texture;" +
-        "varying vec2 v_TexCoordinate;" +
-        "void main() {" +
-        "  gl_FragColor = vec4(0.0,0.0,1.0,1.0)" +
-        "}";
+    public static final String bgVertexShaderCode
+        = "attribute vec4 vPosition;\n"
+        + "attribute vec2 aTexCoord;\n"
+        + "uniform mat4 uMVPMatrix;\n"
+        + "varying vec2 vTexCoord;\n"
+        + "void main() {\n"
+        + "  gl_Position = uMVPMatrix * vPosition;\n"
+        + "  vTexCoord = aTexCoord;\n"
+        + "}\n";
+
+    public static final String bgFragmentShaderCode
+        = "#extension GL_OES_EGL_image_external : require\n"
+        + "precision mediump float;\n"
+        + "uniform samplerExternalOES bgTexture;\n"
+        + "varying vec2 vTexCoord;\n"
+        + "void main() {\n"
+        + "  gl_FragColor = texture2D(bgTexture, vTexCoord);\n"
+        + "}\n";
     //#endregion
     
 }
