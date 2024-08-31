@@ -197,9 +197,9 @@ public class MainActivity extends AppCompatActivity {
     private void updateGLSurfaceViewCoordinates() {
         coordinatesLock.lock();
         try {
-            xyCoordinates = rearrangeCoordinates(xyCoordinates);
-            Log.d(TAG, "XY coordinates " + Arrays.toString(xyCoordinates));
-            float[] planeCoordinates = convertToNDC(xyCoordinates, screenWidth, screenHeight);
+            float[] planeCoordinates = rearrangeCoordinates(xyCoordinates);
+            Log.d(TAG, "XY coordinates " + Arrays.toString(planeCoordinates));
+            // float[] planeCoordinates = convertToNDC(xyCoordinates, screenWidth, screenHeight);
             // planeCoordinates = new float[]{ 
             //     -1.0f,  1.0f,   // top left
             //     1.0f,  1.0f,   // top right
@@ -230,17 +230,6 @@ public class MainActivity extends AppCompatActivity {
         rearranged[7] = coordinates[5]; // Bottom-left y
 
         return rearranged;
-    }
-
-    public float[] convertToNDC(float[] screenCoords, int screenWidth, int screenHeight) {
-        // float[] ndcCoords = new float[screenCoords.length];
-        // // Convert screen coordinates to NDC
-        // for (int i = 0; i < screenCoords.length; i += 2) {
-        //     ndcCoords[i + 1] = -1.0f * screenCoords[i] / (632 * 0.8f) + 0.75f;
-        //     ndcCoords[i] = -1.0f * screenCoords[i + 1] / (834 * 0.8f) + 1.0f;
-        // }
-
-        return screenCoords;
     }
 
     private float[] convertToXYZ(float[] xyCoordinates) {
