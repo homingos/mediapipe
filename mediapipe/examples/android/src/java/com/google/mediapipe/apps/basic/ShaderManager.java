@@ -20,6 +20,7 @@ public class ShaderManager {
         + "varying vec2 vTexCoord;\n"
         + "void main() {\n"
         + "  gl_FragColor = texture2D(uTexture, vTexCoord);\n"
+        // + "  gl_FragColor = vec4(1.0f,0.6f,0.2f,1.0f);\n" // Orange for debugging
         + "}\n";
 
     public static final String bgVertexShaderCode

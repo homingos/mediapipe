@@ -71,7 +71,7 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
         return surfaceTexture;
     }
 
-    public void setPlaneCoordinates(float[] coordinates) {
+    public synchronized void setPlaneCoordinates(float[] coordinates) {
         if (coordinates.length == 12) {
             vertexCoordinates = coordinates;
             if (vertexBuffer != null) {
