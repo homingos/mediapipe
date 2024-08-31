@@ -67,17 +67,32 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
     private float[] textureCoordinates = PlaneData.textureCoordinates;
     private float fullScreenVertexCoordinates[] = PlaneData.fullScreenVertexCoordinates;
 
+    private final Object bufferLock = new Object();  // Lock object for synchronization
+
+    private FloatBuffer vertexBuffer1, vertexBuffer2;
+    private FloatBuffer currentVertexBuffer, updatingVertexBuffer;
+    private boolean doubleBufferingEnabled = true;
+
     public SurfaceTexture getSurfaceTexture() {
         return surfaceTexture;
     }
 
-    public synchronized void setPlaneCoordinates(float[] coordinates) {
+    public void setPlaneCoordinates(float[] coordinates) {
         if (coordinates.length == 12) {
-            vertexCoordinates = coordinates;
-            if (vertexBuffer != null) {
-                vertexBuffer.clear();
-                vertexBuffer.put(vertexCoordinates);
-                vertexBuffer.position(0);
+            synchronized (bufferLock) {
+                if (doubleBufferingEnabled && updatingVertexBuffer != null) {
+                    updatingVertexBuffer.clear();
+                    updatingVertexBuffer.put(coordinates);
+                    updatingVertexBuffer.position(0);
+                    swapBuffers();  // Swap the buffers after updating
+                } else {
+                    vertexCoordinates = coordinates;
+                    if (vertexBuffer != null) {
+                        vertexBuffer.clear();
+                        vertexBuffer.put(vertexCoordinates);
+                        vertexBuffer.position(0);
+                    }
+                }
             }
         }
     }
@@ -90,6 +105,15 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
         setupCameraX();
         Matrix.setIdentityM(bgRotationMatrix, 0);
         Matrix.setIdentityM(videoRotationMatrix, 0);
+
+        if (doubleBufferingEnabled) {
+            vertexBuffer1 = createFloatBuffer(vertexCoordinates);
+            vertexBuffer2 = createFloatBuffer(vertexCoordinates);
+            currentVertexBuffer = vertexBuffer1;
+            updatingVertexBuffer = vertexBuffer2;
+        } else {
+            vertexBuffer = createFloatBuffer(vertexCoordinates);
+        }
     }
 
     // Initialize and set up vertex and texture buffers
@@ -197,9 +221,23 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
         applyRotation(videoRotationMatrix, videoRotationAngle);
         updateMVPMatrix(bgMVPMatrix, bgRotationMatrix);
         updateMVPMatrix(videoMVPMatrix, videoRotationMatrix);
-        drawBackground();
-        drawVideoFrame();
+        
+        synchronized (bufferLock) {
+            // Drawing background and video frame
+            drawBackground();
+            drawVideoFrame();
+        }
+        
         checkOpenGLErrors();
+    }
+
+    private void swapBuffers() {
+        // Safely swap the buffers within a synchronized block
+        synchronized (bufferLock) {
+            FloatBuffer temp = currentVertexBuffer;
+            currentVertexBuffer = updatingVertexBuffer;
+            updatingVertexBuffer = temp;
+        }
     }
 
     private void clearScreen() {
@@ -210,7 +248,6 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
         GLES20.glUseProgram(bgProgram);
         bgSurfaceTexture.updateTexImage();
 
-        // Bind the background texture (camera texture)
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, bgTextureId);
 
@@ -223,20 +260,18 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
         int bgMVPMatrixHandle = GLES20.glGetUniformLocation(bgProgram, "uMVPMatrix");
         GLES20.glUniformMatrix4fv(bgMVPMatrixHandle, 1, false, bgMVPMatrix, 0);
 
-        // Set the vertex attribute pointers
         GLES20.glEnableVertexAttribArray(bgPositionHandle);
         GLES20.glVertexAttribPointer(bgPositionHandle, 3, GLES20.GL_FLOAT, false, 0, bgVertexBuffer);
 
         GLES20.glEnableVertexAttribArray(bgTextureCoordHandle);
         GLES20.glVertexAttribPointer(bgTextureCoordHandle, 2, GLES20.GL_FLOAT, false, 0, textureBuffer);
 
-        // Draw the background as a full-screen quad
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
 
-        // Disable the vertex attribute arrays
         GLES20.glDisableVertexAttribArray(bgPositionHandle);
         GLES20.glDisableVertexAttribArray(bgTextureCoordHandle);
     }
+
 
     private void drawVideoFrame() {
         GLES20.glUseProgram(mProgram);
@@ -255,7 +290,7 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
         GLES20.glUniformMatrix4fv(mvpMatrixHandle, 1, false, videoMVPMatrix, 0);
 
         GLES20.glEnableVertexAttribArray(positionHandle);
-        GLES20.glVertexAttribPointer(positionHandle, 3, GLES20.GL_FLOAT, false, vertexStride, vertexBuffer);
+        GLES20.glVertexAttribPointer(positionHandle, 3, GLES20.GL_FLOAT, false, vertexStride, currentVertexBuffer);
 
         GLES20.glEnableVertexAttribArray(textureHandle);
         GLES20.glVertexAttribPointer(textureHandle, 2, GLES20.GL_FLOAT, false, 2 * 4, textureBuffer);

@@ -4,10 +4,10 @@ public class ShaderManager {
 
     //#region Primary Shaders
     public static final String vertexShaderCode
-    = "attribute vec4 vPosition;\n"
-    + "attribute vec2 aTexCoord;\n"
-    + "uniform mat4 uMVPMatrix;\n"
-    + "varying vec2 vTexCoord;\n"
+    = "attribute mediump vec4 vPosition;\n"
+    + "attribute mediump vec2 aTexCoord;\n"
+    + "uniform mediump mat4 uMVPMatrix;\n"
+    + "varying mediump vec2 vTexCoord;\n"
     + "void main() {\n"
     + "  gl_Position = uMVPMatrix * vPosition;\n"
     + "  vTexCoord = aTexCoord;\n"
@@ -24,10 +24,10 @@ public class ShaderManager {
         + "}\n";
 
     public static final String bgVertexShaderCode
-        = "attribute vec4 vPosition;\n"
-        + "attribute vec2 aTexCoord;\n"
-        + "uniform mat4 uMVPMatrix;\n"
-        + "varying vec2 vTexCoord;\n"
+        = "attribute mediump vec4 vPosition;\n"
+        + "attribute mediump vec2 aTexCoord;\n"
+        + "uniform mediump mat4 uMVPMatrix;\n"
+        + "varying mediump vec2 vTexCoord;\n"
         + "void main() {\n"
         + "  gl_Position = uMVPMatrix * vPosition;\n"
         + "  vTexCoord = aTexCoord;\n"
