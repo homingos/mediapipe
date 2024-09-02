@@ -29,6 +29,7 @@ import javax.microedition.khronos.opengles.GL10;
 public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFrameAvailableListener {
 
     private static final String TAG = "Aman GLRenderer";
+    private MainActivity mainActivity;
 
     private FloatBuffer vertexBuffer;
     private FloatBuffer bgVertexBuffer;
@@ -55,6 +56,7 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
     private float videoRotationAngle = 90.0f;  // Video rotation angle in degrees
 
     private boolean firstFrameReceived = false;
+    private final float INTERPOLATION_FATOR = 0.5f;
 
     // Optimized shaders for performance
     private final String vertexShaderCode = ShaderManager.vertexShaderCode;
@@ -221,6 +223,14 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
         applyRotation(videoRotationMatrix, videoRotationAngle);
         updateMVPMatrix(bgMVPMatrix, bgRotationMatrix);
         updateMVPMatrix(videoMVPMatrix, videoRotationMatrix);
+
+        mainActivity = (MainActivity) getContext();
+
+        float[] currentCoords = mainActivity.getCurrCoordinates();
+        float[] targetCoordinates = mainActivity.getTargetCoordinates();
+        float[] interpolatedCoordinates = lerpCoordinates(currentCoords, targetCoordinates, INTERPOLATION_FATOR);
+        mainActivity.setCurrCoordinates(interpolatedCoordinates);
+        mainActivity.updateGLSurfaceViewCoordinates();
         
         synchronized (bufferLock) {
             // Drawing background and video frame
@@ -229,6 +239,25 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
         }
         
         checkOpenGLErrors();
+    }
+
+        /**
+     * Linearly interpolates between two coordinate sets.
+     *
+     * @param start The starting coordinates.
+     * @param end The target coordinates.
+     * @param t The interpolation factor (0.0 to 1.0).
+     * @return The interpolated coordinates.
+     */
+    private float[] lerpCoordinates(float[] start, float[] end, float t) {
+        if (start.length != end.length) {
+            throw new IllegalArgumentException("Coordinate arrays must have the same length.");
+        }
+        float[] result = new float[start.length];
+        for (int i = 0; i < start.length; i++) {
+            result[i] = start[i] + t * (end[i] - start[i]);
+        }
+        return result;
     }
 
     private void swapBuffers() {

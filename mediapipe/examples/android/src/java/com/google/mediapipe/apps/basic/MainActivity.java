@@ -175,29 +175,46 @@ public class MainActivity extends AppCompatActivity {
     private int screenWidth;
     private int screenHeight;
 
-    private final ReentrantLock coordinatesLock = new ReentrantLock();
-    private final AtomicReference<float[]> xyCoordinatesRef = new AtomicReference<>();
+    private final AtomicReference<float[]> targetCoordinatesRef = new AtomicReference<>(); // target coordinates
+    private final AtomicReference<float[]> currCoordinatesRef = new AtomicReference<>(); // interpolated coordinates
+
+    public float[] getTargetCoordinates() {
+        return targetCoordinatesRef.get();
+    }
+    public float[] getCurrCoordinates() {
+        return currCoordinatesRef.get();
+    }
+
+    public void setCurrCoordinates(float[] currCoordinates) {
+        currCoordinatesRef.set(currCoordinates);
+    }
 
     public void initialize() {
         frameLayout = findViewById(R.id.preview_display_layout);
         mGLSurfView = new CustomGLSurfaceView(this);
         screenWidth = ScreenUtils.getScreenWidth(this);
         screenHeight = ScreenUtils.getScreenHeight(this);
-        // Initial coordinate setup
-        if (xyCoordinatesRef.get() == null) {
-            xyCoordinatesRef.set(new float[]{
-                0.0f, 0.0f,
-                0.0f, 0.0f,
-                0.0f, 0.0f,
-                0.0f, 0.0f,});
+
+        float[] initialCoordinates = new float[]{
+            0.0f, 0.0f,
+            0.0f, 0.0f,
+            0.0f, 0.0f,
+            0.0f, 0.0f,};
+        
+        if (currCoordinatesRef.get() == null) {
+            currCoordinatesRef.set(initialCoordinates.clone());
+        }
+
+        if (targetCoordinatesRef.get() == null) {
+                targetCoordinatesRef.set(initialCoordinates.clone());
         }
 
         updateGLSurfaceViewCoordinates();
         frameLayout.addView(mGLSurfView);
     }
 
-    private void updateGLSurfaceViewCoordinates() {
-        float[] planeCoordinates = rearrangeCoordinates(xyCoordinatesRef.get());
+    public void updateGLSurfaceViewCoordinates() {
+        float[] planeCoordinates = rearrangeCoordinates(targetCoordinatesRef.get());
         Log.d(TAG, "XY coordinates " + Arrays.toString(planeCoordinates));
         // float[] planeCoordinates = convertToNDC(xyCoordinates, screenWidth, screenHeight);
         // planeCoordinates = new float[]{ 
@@ -287,8 +304,8 @@ public class MainActivity extends AppCompatActivity {
                 (packet) -> {
                     try {
                         float[] boxFloats = PacketGetter.getFloat32Vector(packet);
-                        xyCoordinatesRef.set( boxFloats);
-                        Log.e(TAG, "coordinates " + Arrays.toString(xyCoordinates));
+                        targetCoordinatesRef.set(boxFloats.clone());
+                        // Log.e(TAG, "coordinates " + Arrays.toString(xyCoordinatesRef.get()));
                         // Log.d(TAG, "Box floats: " + Arrays.toString(boxFloats));
                         updateGLSurfaceViewCoordinates();
                     } catch (Exception e) {
