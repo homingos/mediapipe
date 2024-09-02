@@ -84,6 +84,7 @@ import java.util.List;
 import android.os.Looper;
 import android.os.Handler;
 import android.widget.FrameLayout;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Main activity of MediaPipe basic app.
@@ -175,6 +176,7 @@ public class MainActivity extends AppCompatActivity {
     private int screenHeight;
 
     private final ReentrantLock coordinatesLock = new ReentrantLock();
+    private final AtomicReference<float[]> xyCoordinatesRef = new AtomicReference<>();
 
     public void initialize() {
         frameLayout = findViewById(R.id.preview_display_layout);
@@ -182,12 +184,12 @@ public class MainActivity extends AppCompatActivity {
         screenWidth = ScreenUtils.getScreenWidth(this);
         screenHeight = ScreenUtils.getScreenHeight(this);
         // Initial coordinate setup
-        if (xyCoordinates == null) {
-            xyCoordinates = new float[]{
+        if (xyCoordinatesRef.get() == null) {
+            xyCoordinatesRef.set(new float[]{
                 0.0f, 0.0f,
                 0.0f, 0.0f,
                 0.0f, 0.0f,
-                0.0f, 0.0f,};
+                0.0f, 0.0f,});
         }
 
         updateGLSurfaceViewCoordinates();
@@ -195,22 +197,17 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateGLSurfaceViewCoordinates() {
-        coordinatesLock.lock();
-        try {
-            float[] planeCoordinates = rearrangeCoordinates(xyCoordinates);
-            Log.d(TAG, "XY coordinates " + Arrays.toString(planeCoordinates));
-            // float[] planeCoordinates = convertToNDC(xyCoordinates, screenWidth, screenHeight);
-            // planeCoordinates = new float[]{ 
-            //     -1.0f,  1.0f,   // top left
-            //     1.0f,  1.0f,   // top right
-            //    -1.0f, -1.0f,   // bottom left
-            //     1.0f, -1.0f,
-            // };
-            planeCoordinates = convertToXYZ(planeCoordinates);
-            mGLSurfView.setPlaneCoordinates(planeCoordinates);
-        } finally {
-            coordinatesLock.unlock();
-        }
+        float[] planeCoordinates = rearrangeCoordinates(xyCoordinatesRef.get());
+        Log.d(TAG, "XY coordinates " + Arrays.toString(planeCoordinates));
+        // float[] planeCoordinates = convertToNDC(xyCoordinates, screenWidth, screenHeight);
+        // planeCoordinates = new float[]{ 
+        //     -1.0f,  1.0f,   // top left
+        //     1.0f,  1.0f,   // top right
+        //    -1.0f, -1.0f,   // bottom left
+        //     1.0f, -1.0f,
+        // };
+        planeCoordinates = convertToXYZ(planeCoordinates);
+        mGLSurfView.setPlaneCoordinates(planeCoordinates);
     }
 
     private float[] rearrangeCoordinates(float[] coordinates) {
@@ -288,17 +285,14 @@ public class MainActivity extends AppCompatActivity {
         // Add packet callbacks for new outputs
         processor.addPacketCallback("box_floats",
                 (packet) -> {
-                    coordinatesLock.lock();
                     try {
                         float[] boxFloats = PacketGetter.getFloat32Vector(packet);
-                        xyCoordinates = boxFloats;
+                        xyCoordinatesRef.set( boxFloats);
                         Log.e(TAG, "coordinates " + Arrays.toString(xyCoordinates));
                         // Log.d(TAG, "Box floats: " + Arrays.toString(boxFloats));
                         updateGLSurfaceViewCoordinates();
                     } catch (Exception e) {
                         Log.e(TAG, "coordinates Error getting box floats: " + e.getMessage());
-                    } finally {
-                        coordinatesLock.unlock();
                     }
                 }
         );
