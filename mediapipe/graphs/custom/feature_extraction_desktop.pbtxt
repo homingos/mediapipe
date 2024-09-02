@@ -45,8 +45,14 @@ node {
 }
 
 node {
+    calculator: "PictureLocalizationCalculator"
+    input_stream: "IMAGE:scanning_frame_enabled"
+    output_stream: "IMAGE:scanning_frame_enabled_cropped"
+}
+
+node {
   calculator: "ScanningSubgraph"
-  input_stream: "scanning_frame_enabled"
+  input_stream: "scanning_frame_enabled_cropped"
   input_stream: "query_feats"
   output_stream: "FLOATS:output_tensor_floats"
   output_stream: "rr_index"
@@ -66,8 +72,19 @@ node {
 }
 
 node {
+  calculator: "PacketResamplerCalculator"
+  input_stream: "DATA:tracking_frame_enabled"
+  output_stream: "DATA:throttled_tracking_frame_enabled"
+  node_options: {
+    [type.googleapis.com/mediapipe.PacketResamplerCalculatorOptions] {
+      frame_rate: 3.0
+    }
+  }
+}
+
+node {
   calculator: "TrackingSubgraph"
-  input_stream: "tracking_frame_enabled"
+  input_stream: "throttled_tracking_frame_enabled"
   input_stream: "match_image"
   output_stream: "box_output"
 }
@@ -108,7 +125,7 @@ node: {
           verify_long_feature_trigger_ratio: 0.4
           tracking_options {
             max_features: 500
-            internal_tracking_direction: CONSECUTIVELY
+            internal_tracking_direction: FORWARD
             adaptive_extraction_levels: 10
             min_eig_val_settings {
               adaptive_lowest_quality_level: 3e-4

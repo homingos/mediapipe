@@ -181,6 +181,7 @@ public class MainActivity extends AppCompatActivity {
     public float[] getTargetCoordinates() {
         return targetCoordinatesRef.get();
     }
+
     public float[] getCurrCoordinates() {
         return currCoordinatesRef.get();
     }
@@ -199,14 +200,16 @@ public class MainActivity extends AppCompatActivity {
             0.0f, 0.0f,
             0.0f, 0.0f,
             0.0f, 0.0f,
+            0.0f, 0.0f,
+            0.0f, 0.0f,
             0.0f, 0.0f,};
-        
+
         if (currCoordinatesRef.get() == null) {
             currCoordinatesRef.set(initialCoordinates.clone());
         }
 
         if (targetCoordinatesRef.get() == null) {
-                targetCoordinatesRef.set(initialCoordinates.clone());
+            targetCoordinatesRef.set(initialCoordinates.clone());
         }
 
         updateGLSurfaceViewCoordinates();
@@ -214,46 +217,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void updateGLSurfaceViewCoordinates() {
-        float[] planeCoordinates = rearrangeCoordinates(targetCoordinatesRef.get());
-        Log.d(TAG, "XY coordinates " + Arrays.toString(planeCoordinates));
-        // float[] planeCoordinates = convertToNDC(xyCoordinates, screenWidth, screenHeight);
-        // planeCoordinates = new float[]{ 
-        //     -1.0f,  1.0f,   // top left
-        //     1.0f,  1.0f,   // top right
-        //    -1.0f, -1.0f,   // bottom left
-        //     1.0f, -1.0f,
-        // };
-        planeCoordinates = convertToXYZ(planeCoordinates);
-        mGLSurfView.setPlaneCoordinates(planeCoordinates);
-    }
-
-    private float[] rearrangeCoordinates(float[] coordinates) {
-        float[] rearranged = new float[coordinates.length];
-
-        // Rearrange to match the desired order
-        rearranged[0] = coordinates[0]; // Top-right x
-        rearranged[1] = coordinates[1]; // Top-right y
-
-        rearranged[2] = coordinates[6]; // Bottom-right x
-        rearranged[3] = coordinates[7]; // Bottom-right y
-
-        rearranged[4] = coordinates[2]; // Top-left x
-        rearranged[5] = coordinates[3]; // Top-left y
-
-        rearranged[6] = coordinates[4]; // Bottom-left x
-        rearranged[7] = coordinates[5]; // Bottom-left y
-
-        return rearranged;
-    }
-
-    private float[] convertToXYZ(float[] xyCoordinates) {
-        float[] xyzCoordinates = new float[xyCoordinates.length / 2 * 3];
-        for (int i = 0, j = 0; i < xyCoordinates.length; i += 2, j += 3) {
-            xyzCoordinates[j] = xyCoordinates[i];       // x
-            xyzCoordinates[j + 1] = xyCoordinates[i + 1]; // y
-            xyzCoordinates[j + 2] = 0.0f;               // z
-        }
-        return xyzCoordinates;
+        mGLSurfView.setPlaneCoordinates(targetCoordinatesRef.get());
     }
 
     @Override
@@ -305,9 +269,6 @@ public class MainActivity extends AppCompatActivity {
                     try {
                         float[] boxFloats = PacketGetter.getFloat32Vector(packet);
                         targetCoordinatesRef.set(boxFloats.clone());
-                        // Log.e(TAG, "coordinates " + Arrays.toString(xyCoordinatesRef.get()));
-                        // Log.d(TAG, "Box floats: " + Arrays.toString(boxFloats));
-                        updateGLSurfaceViewCoordinates();
                     } catch (Exception e) {
                         Log.e(TAG, "coordinates Error getting box floats: " + e.getMessage());
                     }

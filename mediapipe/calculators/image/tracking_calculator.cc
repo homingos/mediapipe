@@ -45,8 +45,8 @@ namespace mediapipe
         {
             cc->SetOffset(::mediapipe::TimestampDiff(0));
 
-            feature_detector_ = cv::AKAZE::create(cv::AKAZE::DESCRIPTOR_MLDB, 300);
-            matcher_ = cv::makePtr<cv::FlannBasedMatcher>(cv::makePtr<cv::flann::LshIndexParams>(20, 10, 3));
+            feature_detector_ = cv::AKAZE::create(cv::AKAZE::DESCRIPTOR_MLDB, 200);
+            matcher_ = cv::makePtr<cv::FlannBasedMatcher>(cv::makePtr<cv::flann::LshIndexParams>(20, 10, 2));
             pool_ = absl::make_unique<mediapipe::ThreadPool>("TrackingPool", kNumThreads);
             pool_->StartWorkers();
             match_found_ = false;
@@ -56,11 +56,9 @@ namespace mediapipe
 
         absl::Status Process(CalculatorContext *cc) override
         {
-            auto f_empty = match_found_;
 
             if (!cc->Inputs().Tag("SECONDARY_IMAGE").IsEmpty())
             {
-                ABSL_LOG(INFO) << "FEEDBACK_I is empty" << f_empty;
                 if (cc->Inputs().Tag("PRIMARY_IMAGE").IsEmpty())
                 {
                     ABSL_LOG(INFO) << "PRIMARY_IMAGE is empty";
@@ -94,15 +92,6 @@ namespace mediapipe
         {
             // Process the overlay
             OverlayImages(cc, primary_image, secondary_image);
-            return absl::OkStatus();
-        }
-
-        absl::Status ProcessOverlay(CalculatorContext *cc,
-                                    const ImageFrame &primary_image,
-                                    const ImageFrame &loop_image)
-        {
-            // Process the overlay
-            OverlayImages(cc, primary_image, loop_image);
             return absl::OkStatus();
         }
 
@@ -162,7 +151,6 @@ namespace mediapipe
 
                 const float ratio_thresh = 0.75f;
                 std::vector<cv::DMatch> good_matches;
-
                 ParallelFor(0, knn_matches.size(), 1,
                             [&knn_matches, &good_matches, ratio_thresh](const BlockedRange &b)
                             {
@@ -195,7 +183,7 @@ namespace mediapipe
                 // Filter matches using epipolar constraint
                 std::vector<cv::DMatch> epipolar_matches;
                 std::vector<cv::Point2f> filtered_primary_points, filtered_secondary_points;
-                const double epipolar_thresh = 3.0; // Adjust this threshold as needed
+                const double epipolar_thresh = 1.0; // Adjust this threshold as needed
 
                 for (size_t i = 0; i < primary_points.size(); ++i)
                 {
@@ -221,12 +209,9 @@ namespace mediapipe
 
                 // Find homography matrix using filtered matches
                 cv::Mat homography;
-                if (filtered_primary_points.size() >= 20 && filtered_secondary_points.size() >= 20)
+                if (filtered_primary_points.size() >= 8 && filtered_secondary_points.size() >= 8)
                 {
                     homography = cv::findHomography(filtered_secondary_points, filtered_primary_points, cv::RANSAC);
-                    // use a weighted average
-                    // double weight = MAX_CHANGE_THRESHOLD / change;
-                    // homography = weight * homography + (1 - weight) * previousHomography;
                     if (!homography.empty())
                     {
                         // Define template corners (in template image coordinates)
@@ -276,6 +261,8 @@ namespace mediapipe
                             .Add(feedback_homography.release(), cc->InputTimestamp());
                         return;
                     }
+                }else{
+                    return;
                 }
             }
             catch (const std::exception &e)

@@ -101,7 +101,7 @@ namespace mediapipe
 
             // Find the index with the maximum match count
             int max_index = -1;
-            int max_count = 15;
+            int max_count = 12;
             for (int i = 0; i < match_counts.size(); ++i)
             {
                 if (match_counts[i] > max_count)

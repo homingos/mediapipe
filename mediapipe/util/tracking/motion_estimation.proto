@@ -160,7 +160,7 @@ message MotionEstimationOptions {
   // iterations of RANSAC did NOT yield an error lower than cutoff.
   // Only applies to translation and similarity estimation.
   message IrlsOutlierInitialization {
-    optional bool activated = 1 [default = false];
+    optional bool activated = 1 [default = true];
 
     optional int32 rounds = 2 [default = 100];
     optional float cutoff = 3 [default = 0.003];
@@ -180,7 +180,7 @@ message MotionEstimationOptions {
   // that are present for a specified ratio of the analysis interval can be
   // upweighted. This greatly improves temporal consistency.
   message LongFeatureInitialization {
-    optional bool activated = 1 [default = false];
+    optional bool activated = 1 [default = true];
 
     // Tracks with a length greater of equal to the specified percentile
     // are upweighted by the specified upweight_multiplier.

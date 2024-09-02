@@ -56,11 +56,21 @@ namespace mediapipe
 
                     // Create and send output
                     std::vector<float> output_boxes;
-                    for (const auto &corner : corners)
-                    {
-                        output_boxes.push_back(((-2.0f * corner.y() /  (input_props.first))) + 1.0f);
-                        output_boxes.push_back(((-2.0f * corner.x() /  (input_props.second))) + 1.0f);
-                    }
+                    const float scale_factor = -2.02f;
+                    const float x_offset = 1.0f;
+                    const float y_offset = 1.01f;
+                    output_boxes.push_back(((scale_factor* corners[0].y() /  (input_props.first))) + y_offset);
+                    output_boxes.push_back(((scale_factor* corners[0].x() /  (input_props.second))) + x_offset);
+                    output_boxes.push_back(0.0f);
+                    output_boxes.push_back(((scale_factor* corners[3].y() /  (input_props.first))) + y_offset);
+                    output_boxes.push_back(((scale_factor* corners[3].x() /  (input_props.second))) + x_offset);
+                    output_boxes.push_back(0.0f);
+                    output_boxes.push_back(((scale_factor* corners[1].y() /  (input_props.first))) + y_offset);
+                    output_boxes.push_back(((scale_factor* corners[1].x() /  (input_props.second))) + x_offset);
+                    output_boxes.push_back(0.0f);
+                    output_boxes.push_back(((scale_factor* corners[2].y() /  (input_props.first))) + y_offset);
+                    output_boxes.push_back(((scale_factor* corners[2].x() /  (input_props.second))) + x_offset);
+                    output_boxes.push_back(0.0f);
                     auto output_floats = absl::make_unique<std::vector<float>>(output_boxes);
                     cc->Outputs().Tag("BFLOATS").Add(output_floats.release(), cc->InputTimestamp());
                 }
