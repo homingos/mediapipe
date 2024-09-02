@@ -75,6 +75,11 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
     private FloatBuffer currentVertexBuffer, updatingVertexBuffer;
     private boolean doubleBufferingEnabled = true;
 
+    private long lastFrameTime = System.currentTimeMillis();
+    private int frameCount = 0;
+    private static final int RENDERING_FPS_LOG_INTERVAL_MS = 1000; // 1 second
+
+
     public SurfaceTexture getSurfaceTexture() {
         return surfaceTexture;
     }
@@ -218,6 +223,18 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
 
     @Override
     public void onDrawFrame(GL10 gl) {
+
+        long currentTime = System.currentTimeMillis();
+        long elapsedTime = currentTime - lastFrameTime;
+        frameCount++;
+
+        if (elapsedTime >= RENDERING_FPS_LOG_INTERVAL_MS) {
+            float fps = (float) frameCount / (elapsedTime / 1000.0f);
+            Log.d(TAG, "Rendering FPS: " + fps);
+            frameCount = 0;
+            lastFrameTime = currentTime;
+        }
+
         clearScreen();
         applyRotation(bgRotationMatrix, bgRotationAngle);
         applyRotation(videoRotationMatrix, videoRotationAngle);

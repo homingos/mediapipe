@@ -27,6 +27,7 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
+import android.os.SystemClock;
 
 import com.google.mediapipe.components.CameraHelper;
 import com.google.mediapipe.components.CameraXPreviewHelper;
@@ -178,6 +179,13 @@ public class MainActivity extends AppCompatActivity {
     private final AtomicReference<float[]> targetCoordinatesRef = new AtomicReference<>(); // target coordinates
     private final AtomicReference<float[]> currCoordinatesRef = new AtomicReference<>(); // interpolated coordinates
 
+    private long lastBoxFloatsTime = System.currentTimeMillis();
+    private int boxFloatsFrameCount = 0;
+    private static final int BOX_FLOATS_FPS_LOG_INTERVAL_MS = 1000; // 1 second
+    private long startTime;  // Start time for measuring coordinate update duration
+    private long coordinateUpdateTime; // Time taken to update box_floats
+
+
     public float[] getTargetCoordinates() {
         return targetCoordinatesRef.get();
     }
@@ -269,6 +277,17 @@ public class MainActivity extends AppCompatActivity {
                     try {
                         float[] boxFloats = PacketGetter.getFloat32Vector(packet);
                         targetCoordinatesRef.set(boxFloats.clone());
+
+                        // Calculate the frame rate
+                        long currentTime = System.currentTimeMillis();
+                        boxFloatsFrameCount++;
+                        if (currentTime - lastBoxFloatsTime >= BOX_FLOATS_FPS_LOG_INTERVAL_MS) {
+                            float fps = (float) boxFloatsFrameCount / (BOX_FLOATS_FPS_LOG_INTERVAL_MS / 1000.0f);
+                            Log.d(TAG, "Box floats FPS: " + fps);
+                            boxFloatsFrameCount = 0;
+                            lastBoxFloatsTime = currentTime;
+                        }
+                        updateGLSurfaceViewCoordinates();
                     } catch (Exception e) {
                         Log.e(TAG, "coordinates Error getting box floats: " + e.getMessage());
                     }
@@ -305,6 +324,7 @@ public class MainActivity extends AppCompatActivity {
                                     InputStream inputStream = connection.getInputStream();
                                     Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
                                     updateView("Image downloaded");
+                                    Log.d(TAG, "Downloading image from URL: " + url);
                                     Packet imagePacket = processor.getPacketCreator().createRgbImageFrame(bitmap);
                                     processor.getGraph().addPacketToInputStream("match_image", imagePacket,
                                             System.currentTimeMillis());
