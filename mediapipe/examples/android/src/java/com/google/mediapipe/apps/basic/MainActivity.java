@@ -158,6 +158,7 @@ public class MainActivity extends AppCompatActivity {
     private volatile boolean matchFound = false;
     private volatile boolean processing = false;
     private JSONArray imgIdx;
+    private JSONArray vidIdx;
     // private Packet featuresPacket;
     private long currentFeatsTs;
 
@@ -261,11 +262,11 @@ public class MainActivity extends AppCompatActivity {
                 eglManager.getNativeContext(),
                 applicationInfo.metaData.getString("binaryGraphName"),
                 applicationInfo.metaData.getString("inputVideoStreamName"),
-                applicationInfo.metaData.getString("outputVideoStreamName"));
-        processor
-                .getVideoSurfaceOutput()
-                .setFlipY(
-                        applicationInfo.metaData.getBoolean("flipFramesVertically", FLIP_FRAMES_VERTICALLY));
+                null);
+        // // processor
+        // //         .getVideoSurfaceOutput()
+        // //         .setFlipY(
+        //                 applicationInfo.metaData.getBoolean("flipFramesVertically", FLIP_FRAMES_VERTICALLY));
 
         PermissionHelper.checkAndRequestCameraPermissions(this);
         processor.getGraph().addPacketToInputStream("match_image", processor.getPacketCreator().createRgbImageFrame(
@@ -315,6 +316,7 @@ public class MainActivity extends AppCompatActivity {
                                 processingLock.lock();
                                 try {
                                     matchFound = true;
+                                    // URL video_url = new URL(vidIdx.optString(index));
                                     URL url = new URL(imgIdx.optString(index));
                                     HttpURLConnection connection = (HttpURLConnection) url.openConnection();
                                     connection.setRequestMethod("GET");
@@ -449,7 +451,7 @@ public class MainActivity extends AppCompatActivity {
 
                     @Override
                     public void surfaceDestroyed(SurfaceHolder holder) {
-                        processor.getVideoSurfaceOutput().setSurface(null);
+                        // processor.getVideoSurfaceOutput().setSurface(null);
                     }
                 });
     }
@@ -495,11 +497,13 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void onResponse(Call call, Response response) {
                         JSONArray images = null;
+                        JSONArray videos = null;
                         try {
                             if (response.isSuccessful()) {
                                 String responseBody = response.body().string();
                                 JSONObject Jobject = new JSONObject(responseBody);
                                 images = Jobject.getJSONArray("images");
+                                videos = Jobject.getJSONArray("videos");
                                 if (images.length() == 0) {
                                     Log.e(TAG, "No images returned from server");
                                     updateView("No detections");
@@ -527,6 +531,7 @@ public class MainActivity extends AppCompatActivity {
                                 processingLock.tryLock();
                                 processing = false;
                                 imgIdx = images;
+                                vidIdx = videos;
                                 processingLock.unlock();
                                 response.close();
                             } catch (Exception e) {

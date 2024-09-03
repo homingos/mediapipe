@@ -3,13 +3,19 @@ input_stream: "query_feats"
 input_stream: "match_image"
 input_stream: "enable_scanning"
 
-output_stream: "output_video"
 output_stream: "output_tensor_floats"
 output_stream: "rr_index"
 output_stream: "box_floats"
 
+profiler_config {
+  trace_enabled: true
+  enable_profiler: true
+  trace_log_interval_count: 200
+  trace_log_path: "/sdcard/Download/"
+}
+
 num_threads: 4
-max_queue_size: 30
+max_queue_size: 1
 
 node {
   calculator: "GpuBufferToImageFrameCalculator"
@@ -77,7 +83,7 @@ node {
   output_stream: "DATA:throttled_tracking_frame_enabled"
   node_options: {
     [type.googleapis.com/mediapipe.PacketResamplerCalculatorOptions] {
-      frame_rate: 3.0
+      frame_rate: 2.0
     }
   }
 }
@@ -92,7 +98,7 @@ node {
 node {
   calculator: "FlowLimiterCalculator"
   input_stream: "input_video_cpu"
-  input_stream: "FINISHED:viz"
+  input_stream: "FINISHED:boxes"
   input_stream_info: {
     tag_index: "FINISHED"
     back_edge: true
@@ -118,13 +124,13 @@ node: {
         flow_options {
           fast_estimation_min_block_size: 50
           top_inlier_sets: 1
-          frac_inlier_error_threshold: 3e-3
+          frac_inlier_error_threshold: 1e-3
           downsample_mode: DOWNSAMPLE_TO_MIN_SIZE
           verification_distance: 2.3
           verify_long_feature_acceleration: true
-          verify_long_feature_trigger_ratio: 0.4
+          verify_long_feature_trigger_ratio: 0.2
           tracking_options {
-            max_features: 500
+            max_features: 250
             internal_tracking_direction: FORWARD
             adaptive_extraction_levels: 10
             min_eig_val_settings {
@@ -158,9 +164,7 @@ node: {
 node: {
   calculator: "BoxTrackerCalculator"
   input_stream: "TRACKING:tracking_data"
-  input_stream: "VIDEO:throttled_input_video_cpu"
   input_stream: "START_POS:box_output"
-  output_stream: "VIZ:viz"
   output_stream: "BOXES:boxes"
 
   input_stream_handler {
@@ -169,7 +173,6 @@ node: {
       [mediapipe.SyncSetInputStreamHandlerOptions.ext] {
         sync_set {
           tag_index: "TRACKING"
-          tag_index: "VIDEO"
         }
         sync_set {
           tag_index: "START_POS"
@@ -185,8 +188,7 @@ node: {
           track_object_and_camera: true
           tracking_degrees: TRACKING_DEGREE_OBJECT_PERSPECTIVE
           inlier_spring_force: 0.0
-          static_motion_temporal_ratio: 3e-2
-          forced_pnp_tracking: true
+          static_motion_temporal_ratio: 2e-2
         }
       }
       streaming_track_data_cache_size: 100
@@ -205,10 +207,4 @@ node {
   input_stream: "BOXES:boxes"
   input_stream: "PROPS:gated_image_size"
   output_stream: "BFLOATS:box_floats"
-}
-
-node: {
-  calculator: "ImageFrameToGpuBufferCalculator"
-  input_stream: "viz"
-  output_stream: "output_video"
 }

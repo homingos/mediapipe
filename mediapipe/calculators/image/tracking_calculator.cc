@@ -46,7 +46,7 @@ namespace mediapipe
             cc->SetOffset(::mediapipe::TimestampDiff(0));
 
             feature_detector_ = cv::AKAZE::create(cv::AKAZE::DESCRIPTOR_MLDB, 200);
-            matcher_ = cv::makePtr<cv::FlannBasedMatcher>(cv::makePtr<cv::flann::LshIndexParams>(20, 10, 2));
+            matcher_ = cv::makePtr<cv::FlannBasedMatcher>(cv::makePtr<cv::flann::LshIndexParams>(20, 10, 1));
             pool_ = absl::make_unique<mediapipe::ThreadPool>("TrackingPool", kNumThreads);
             pool_->StartWorkers();
             match_found_ = false;
@@ -183,7 +183,7 @@ namespace mediapipe
                 // Filter matches using epipolar constraint
                 std::vector<cv::DMatch> epipolar_matches;
                 std::vector<cv::Point2f> filtered_primary_points, filtered_secondary_points;
-                const double epipolar_thresh = 1.0; // Adjust this threshold as needed
+                const double epipolar_thresh = 0.6; // Adjust this threshold as needed
 
                 for (size_t i = 0; i < primary_points.size(); ++i)
                 {
@@ -209,7 +209,7 @@ namespace mediapipe
 
                 // Find homography matrix using filtered matches
                 cv::Mat homography;
-                if (filtered_primary_points.size() >= 8 && filtered_secondary_points.size() >= 8)
+                if (filtered_primary_points.size() >= 16 && filtered_secondary_points.size() >= 16)
                 {
                     homography = cv::findHomography(filtered_secondary_points, filtered_primary_points, cv::RANSAC);
                     if (!homography.empty())
