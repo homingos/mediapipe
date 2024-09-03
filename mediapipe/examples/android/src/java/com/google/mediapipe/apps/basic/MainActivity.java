@@ -94,6 +94,7 @@ public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "Aman Mediapipe";
     private static final String ASSET_URL_BASE = "https://storage.googleapis.com/avatar-system/test/assets/";
+    private String video_url = "https://zingcam.cdn.flamapp.com/compressed/videos/66c364697c7c68db5c02f755_991392938.mp4";
 
     // Flips the camera-preview frames vertically by default, before sending them
     // into FrameProcessor
@@ -316,8 +317,9 @@ public class MainActivity extends AppCompatActivity {
                                 processingLock.lock();
                                 try {
                                     matchFound = true;
-                                    // URL video_url = new URL(vidIdx.optString(index));
                                     URL url = new URL(imgIdx.optString(index));
+                                    video_url = new URL(vidIdx.optString(index)).toString();
+                                    Log.d(TAG, "Downloading video from URL: " + video_url);
                                     HttpURLConnection connection = (HttpURLConnection) url.openConnection();
                                     connection.setRequestMethod("GET");
                                     connection.setDoInput(true);
@@ -579,10 +581,9 @@ public class MainActivity extends AppCompatActivity {
 
     private void downloadAssets() {
         final String assetDir = getFilesDir().getAbsolutePath() + "/";
-        List<String> files = Arrays.asList("testcinema.ox3dv", "cinema.jpeg",
-                "trex-attribution.txt", "trex.mtl", "trex.obj", "trex.png");
+        List<String> files = Arrays.asList("abc.mp4");
         for (String file : files) {
-            String fileURL = ASSET_URL_BASE + file;
+            String fileURL = video_url;
             downloadFile(fileURL, assetDir, file);
         }
         Assets.copyFiles(getAssets(), assetDir, true);
@@ -598,6 +599,7 @@ public class MainActivity extends AppCompatActivity {
                 // Update UI with result, e.g., display a message or update a view
                 if (result != null) {
                     Log.d(TAG, "Download successful: " + result);
+                    mGLSurfView.setVideoPath(result);
                 } else {
                     Log.e(TAG, "Download failed");
                 }

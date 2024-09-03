@@ -13,6 +13,7 @@ public class CustomGLSurfaceView extends GLSurfaceView {
 
     private final GLRenderer mGLRenderer;
     private MediaPlayer mediaPlayer;
+    public String videoPath;
 
     public CustomGLSurfaceView(Context context) {
         super(context);
@@ -46,13 +47,23 @@ public class CustomGLSurfaceView extends GLSurfaceView {
 
     public void initMediaplayer() {
         SurfaceTexture surfaceTexture = mGLRenderer.getSurfaceTexture();
-        mediaPlayer = MediaPlayer.create(getContext(), R.raw.test);
-        mediaPlayer.setSurface(new Surface(surfaceTexture));
-        mediaPlayer.setLooping(true);
-        mediaPlayer.start();
+        mediaPlayer = new MediaPlayer(); // Create the MediaPlayer instance
+        try {
+            mediaPlayer.setDataSource(videoPath); // Set the data source
+            mediaPlayer.setSurface(new Surface(surfaceTexture));
+            mediaPlayer.setLooping(true);
+            mediaPlayer.prepare(); // Prepare the media player
+            mediaPlayer.start(); // Start playback
+        } catch (Exception e) {
+            e.printStackTrace(); // Handle exceptions
+        }
     }
 
     public void setPlaneCoordinates(float[] coordinates) {
         mGLRenderer.setPlaneCoordinates(coordinates);
+    }
+
+    public void setVideoPath(String path) {
+        videoPath = path;
     }
 }
