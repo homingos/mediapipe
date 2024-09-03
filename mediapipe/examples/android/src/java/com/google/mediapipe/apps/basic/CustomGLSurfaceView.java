@@ -48,6 +48,13 @@ public class CustomGLSurfaceView extends GLSurfaceView {
     }
 
     public void initMediaplayer(String videoPath) {
+        // If there is already a MediaPlayer instance, release it first
+        if (mediaPlayer != null) {
+            Log.d(TAG, "Releasing current MediaPlayer");
+            mediaPlayer.stop();
+            mediaPlayer.release();
+            mediaPlayer = null;
+        }
         SurfaceTexture surfaceTexture = mGLRenderer.getSurfaceTexture();
         mediaPlayer = new MediaPlayer(); // Create the MediaPlayer instance
         try {
