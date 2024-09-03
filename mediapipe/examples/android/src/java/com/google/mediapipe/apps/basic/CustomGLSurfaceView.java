@@ -8,12 +8,14 @@ import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 import android.media.MediaPlayer;
 import android.view.Surface;
+import android.util.Log;
 
 public class CustomGLSurfaceView extends GLSurfaceView {
 
     private final GLRenderer mGLRenderer;
+    private static final String TAG = "Aman CustomGLSurfaceView";
     private MediaPlayer mediaPlayer;
-    public String videoPath;
+    // private String videoPath;
 
     public CustomGLSurfaceView(Context context) {
         super(context);
@@ -45,10 +47,11 @@ public class CustomGLSurfaceView extends GLSurfaceView {
         setRenderer(mGLRenderer);
     }
 
-    public void initMediaplayer() {
+    public void initMediaplayer(String videoPath) {
         SurfaceTexture surfaceTexture = mGLRenderer.getSurfaceTexture();
         mediaPlayer = new MediaPlayer(); // Create the MediaPlayer instance
         try {
+            Log.d(TAG, "Setting data source: " + videoPath);
             mediaPlayer.setDataSource(videoPath); // Set the data source
             mediaPlayer.setSurface(new Surface(surfaceTexture));
             mediaPlayer.setLooping(true);
@@ -61,9 +64,5 @@ public class CustomGLSurfaceView extends GLSurfaceView {
 
     public void setPlaneCoordinates(float[] coordinates) {
         mGLRenderer.setPlaneCoordinates(coordinates);
-    }
-
-    public void setVideoPath(String path) {
-        videoPath = path;
     }
 }
