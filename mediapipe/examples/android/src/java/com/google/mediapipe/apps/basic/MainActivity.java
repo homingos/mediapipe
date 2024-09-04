@@ -277,6 +277,7 @@ public class MainActivity extends AppCompatActivity {
                 (packet) -> {
                     try {
                         float[] boxFloats = PacketGetter.getFloat32Vector(packet);
+                        Log.d(TAG, "Box floats: " + Arrays.toString(boxFloats));
                         targetCoordinatesRef.set(boxFloats.clone());
 
                         // Calculate the frame rate
@@ -577,79 +578,4 @@ public class MainActivity extends AppCompatActivity {
         processingLock.unlock();
         updateView("Detection restarted"); // Update the UI
     }
-
-    // private void downloadAssets() {
-    //     final String assetDir = getFilesDir().getAbsolutePath() + "/";
-    //     List<String> files = Arrays.asList("abc.mp4");
-    //     for (String file : files) {
-    //         String fileURL = video_url;
-    //         downloadFile(fileURL, assetDir, file);
-    //     }
-    //     Assets.copyFiles(getAssets(), assetDir, true);
-    // }
-
-    // private void downloadFile(final String fileURL, final String dirPath, final String fileName) {
-    //     ExecutorService executor = Executors.newSingleThreadExecutor();
-    //     Handler handler = new Handler(Looper.getMainLooper());
-
-    //     executor.execute(() -> {
-    //         String result = performDownload(fileURL, dirPath, fileName);
-    //         handler.post(() -> {
-    //             // Update UI with result, e.g., display a message or update a view
-    //             if (result != null) {
-    //                 Log.d(TAG, "Download successful: " + result);
-    //             } else {
-    //                 Log.e(TAG, "Download failed");
-    //             }
-    //         });
-    //     });
-    // }
-
-    // private String performDownload(String fileURL, String dirPath, String fileName) {
-    //     InputStream input = null;
-    //     OutputStream output = null;
-    //     HttpURLConnection urlConnection = null;
-    //     try {
-    //         File dir = new File(dirPath);
-    //         if (!dir.exists() && !dir.mkdirs()) {
-    //             Log.e(TAG, "Failed to create directory: " + dirPath);
-    //             return null;
-    //         }
-
-    //         URL url = new URL(fileURL);
-    //         urlConnection = (HttpURLConnection) url.openConnection();
-    //         urlConnection.setRequestMethod("GET");
-    //         urlConnection.connect();
-
-    //         File file = new File(dir, fileName);
-    //         output = new FileOutputStream(file);
-
-    //         input = urlConnection.getInputStream();
-    //         byte[] buffer = new byte[4096];
-    //         int byteCount;
-    //         while ((byteCount = input.read(buffer)) != -1) {
-    //             output.write(buffer, 0, byteCount);
-    //         }
-
-    //         return file.getAbsolutePath();
-    //     } catch (Exception e) {
-    //         Log.e(TAG, "Error downloading file: " + e.getMessage(), e);
-    //         return null;
-    //     } finally {
-    //         try {
-    //             if (input != null) {
-    //                 input.close();
-    //             }
-    //             if (output != null) {
-    //                 output.close();
-    //             }
-    //         } catch (Exception e) {
-    //             Log.e(TAG, "Error closing streams: " + e.getMessage(), e);
-    //         }
-    //         if (urlConnection != null) {
-    //             urlConnection.disconnect();
-    //         }
-    //     }
-    // }
-
 }
