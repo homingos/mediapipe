@@ -13,6 +13,7 @@
 #include "absl/synchronization/blocking_counter.h"
 #include "absl/synchronization/mutex.h"
 #include "mediapipe/util/tracking/parallel_invoker.h"
+
 namespace mediapipe
 {
 
@@ -28,7 +29,7 @@ namespace mediapipe
             }
             if (cc->Inputs().HasTag("QFEATURES"))
             {
-                cc->Inputs().Tag("QFEATURES").Set<std::string>();
+                cc->Inputs().Tag("QFEATURES").Set<std::vector<std::string>>();
             }
             if (cc->Outputs().HasTag("RESULT"))
             {
@@ -40,86 +41,94 @@ namespace mediapipe
         absl::Status Open(CalculatorContext *cc) override
         {
             cc->SetOffset(TimestampDiff(0));
-            matcher_ = cv::makePtr<cv::FlannBasedMatcher>(cv::makePtr<cv::flann::LshIndexParams>(12, 20, 2));
+            matcher_ = cv::makePtr<cv::BFMatcher>(cv::NORM_HAMMING, true);
             return absl::OkStatus();
         }
 
         absl::Status Process(CalculatorContext *cc) override
         {
-            ABSL_LOG(INFO) << "RerankCalculator runnning";
-            if (cc->Inputs().Tag("FEATURES").IsEmpty() || cc->Inputs().Tag("QFEATURES").IsEmpty())
+            ABSL_LOG(INFO) << "RerankCalculator running";
+            try
             {
-                auto output = absl::make_unique<int>(-1);
-                cc->Outputs().Tag("RESULT").Add(output.release(), cc->InputTimestamp());
-                return absl::OkStatus();
-            }
-
-            const cv::Mat &features = cc->Inputs().Tag("FEATURES").Get<cv::Mat>();
-            const std::string &qfeaturesstring = cc->Inputs().Tag("QFEATURES").Get<std::string>();
-            const std::vector<std::string> &qfeatures = splitQueryFeatures(qfeaturesstring);
-            std::vector<int> match_counts(qfeatures.size(), -1);
-
-            // Process each query image
-            ParallelFor(0, qfeatures.size(), 1,
-                        [this, &qfeatures, &features, &match_counts](const BlockedRange &b)
-                        {
-                            for (int selectionIndex = b.begin(); selectionIndex != b.end();
-                                 ++selectionIndex)
-                            {
-                                const auto &encoded_descriptor = qfeatures[selectionIndex];
-
-                                // Deserialize query features for this image
-                                cv::Mat query_descriptors;
-                                try
-                                {
-                                    query_descriptors = deserialize_orb_descriptors(encoded_descriptor);
-                                }
-                                catch (const std::runtime_error &e)
-                                {
-                                    LOG(ERROR) << "Failed to deserialize ORB descriptors: " << e.what();
-                                    return absl::InternalError("Failed to deserialize ORB descriptors.");
-                                }
-
-                                // Perform matching
-                                std::vector<std::vector<cv::DMatch>> matches;
-                                matcher_->knnMatch(query_descriptors, features, matches, 2); // k=2 for ratio test
-
-                                // Apply ratio test and count matches
-                                int localMatchCount = 0;
-                                for (const auto &match : matches)
-                                {
-                                    if (match.size() == 2 &&
-                                        match[0].distance < 0.75f * match[1].distance)
-                                    {
-                                        localMatchCount++;
-                                    }
-                                }
-                                match_counts[selectionIndex] = localMatchCount;
-                                ABSL_LOG(INFO) << "SCORES: " << match_counts[selectionIndex];
-                            }
-                        });
-
-            // Find the index with the maximum match count
-            int max_index = -1;
-            int max_count = 12;
-            for (int i = 0; i < match_counts.size(); ++i)
-            {
-                if (match_counts[i] > max_count)
+                if (cc->Inputs().Tag("FEATURES").IsEmpty() || cc->Inputs().Tag("QFEATURES").IsEmpty())
                 {
-                    max_index = i;
-                    max_count = match_counts[i];
+                    auto output = absl::make_unique<int>(-1);
+                    cc->Outputs().Tag("RESULT").Add(output.release(), cc->InputTimestamp());
+                    return absl::OkStatus();
                 }
-            }
 
-            // Output the index with the maximum match count
-            auto output = absl::make_unique<int>(max_index);
-            cc->Outputs().Tag("RESULT").Add(output.release(), cc->InputTimestamp());
+                const cv::Mat &features = cc->Inputs().Tag("FEATURES").Get<cv::Mat>();
+                // const std::string &qfeaturesstring = cc->Inputs().Tag("QFEATURES").Get<std::vector<std::string>>();
+                const std::vector<std::string> &qfeatures =cc->Inputs().Tag("QFEATURES").Get<std::vector<std::string>>();
+                std::vector<int> match_counts(qfeatures.size(), -1);
+
+                // Process each query image
+                ParallelFor(0, qfeatures.size(), 1,
+                            [this, &qfeatures, &features, &match_counts](const BlockedRange &b)
+                            {
+                                for (int selectionIndex = b.begin(); selectionIndex != b.end();
+                                     ++selectionIndex)
+                                {
+                                    const auto &encoded_descriptor = qfeatures[selectionIndex];
+
+                                    // Deserialize query features for this image
+                                    cv::Mat query_descriptors;
+                                    try
+                                    {
+                                        query_descriptors = deserialize_brisk_descriptors(encoded_descriptor);
+                                    }
+                                    catch (const std::runtime_error &e)
+                                    {
+                                        LOG(ERROR) << "Failed to deserialize BRISK descriptors: " << e.what();
+                                        return;
+                                    }
+
+                                    // Perform matching
+                                    std::vector<cv::DMatch> matches;
+                                    matcher_->match(query_descriptors, features, matches);
+
+                                    // Filter good matches
+                                    std::vector<cv::DMatch> good_matches;
+                                    const float max_distance = 70.0f; // Adjust this threshold as needed
+                                    for (const auto &match : matches)
+                                    {
+                                        if (match.distance < max_distance)
+                                        {
+                                            good_matches.push_back(match);
+                                        }
+                                    }
+
+                                    match_counts[selectionIndex] = good_matches.size();
+                                    ABSL_LOG(INFO) << "SCORES: " << match_counts[selectionIndex];
+                                }
+                            });
+
+                // Find the index with the maximum match count
+                int max_index = -1;
+                int max_count = 5; // Adjust this threshold as needed
+                for (int i = 0; i < match_counts.size(); ++i)
+                {
+                    if (match_counts[i] > max_count)
+                    {
+                        max_index = i;
+                        max_count = match_counts[i];
+                    }
+                }
+
+                // Output the index with the maximum match count
+                auto output = absl::make_unique<int>(max_index);
+                cc->Outputs().Tag("RESULT").Add(output.release(), cc->InputTimestamp());
+            }
+            catch (const std::exception &e)
+            {
+                LOG(ERROR) << "Caught exception: " << e.what();
+            }
 
             return absl::OkStatus();
         }
 
     private:
-        cv::Ptr<cv::FlannBasedMatcher> matcher_;
+        cv::Ptr<cv::BFMatcher> matcher_;
         std::vector<uint8_t> base64_decode_custom(const std::string &encoded_string)
         {
             const std::string base64_chars =
@@ -170,6 +179,34 @@ namespace mediapipe
             }
 
             return ret;
+        }
+
+        cv::Mat deserialize_brisk_descriptors(const std::string &base64_str)
+        {
+            std::vector<uint8_t> decoded = base64_decode_custom(base64_str);
+
+            // Extract header information (rows, cols, type)
+            const uint8_t *data = decoded.data();
+            uint32_t rows = *reinterpret_cast<const uint32_t *>(data);
+            uint32_t cols = *reinterpret_cast<const uint32_t *>(data + sizeof(uint32_t));
+            uint32_t type_size = *reinterpret_cast<const uint32_t *>(data + 2 * sizeof(uint32_t));
+
+            // BRISK descriptors are typically unsigned char (CV_8U)
+            if (type_size != sizeof(uint8_t))
+            {
+                throw std::runtime_error("Unexpected data type for BRISK descriptors.");
+            }
+
+            // Extract matrix data
+            const uint8_t *matrix_data = data + 3 * sizeof(uint32_t);
+
+            // Allocate memory for the descriptor data
+            cv::Mat descriptors(rows, cols, CV_8U);
+
+            // Copy the data to the allocated memory
+            std::memcpy(descriptors.data, matrix_data, rows * cols * sizeof(uint8_t));
+
+            return descriptors.clone();
         }
 
         cv::Mat deserialize_orb_descriptors(const std::string &base64_str)

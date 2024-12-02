@@ -13,7 +13,7 @@ import android.util.Log;
 public class CustomGLSurfaceView extends GLSurfaceView {
 
     private final GLRenderer mGLRenderer;
-    private static final String TAG = "Aman CustomGLSurfaceView";
+    private static final String TAG = "RtCS CustomGLSurfaceView";
     private MediaPlayer mediaPlayer;
     // private String videoPath;
 

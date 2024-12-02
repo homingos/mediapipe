@@ -28,7 +28,7 @@ import javax.microedition.khronos.opengles.GL10;
 
 public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFrameAvailableListener {
 
-    private static final String TAG = "Aman GLRenderer";
+    private static final String TAG = "RtCS GLRenderer";
     private MainActivity mainActivity;
 
     private FloatBuffer vertexBuffer;
@@ -79,28 +79,17 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
     private int frameCount = 0;
     private static final int RENDERING_FPS_LOG_INTERVAL_MS = 1000; // 1 second
 
-
     public SurfaceTexture getSurfaceTexture() {
         return surfaceTexture;
     }
 
-    public void setPlaneCoordinates(float[] coordinates) {
-        if (coordinates.length == 12) {
-            synchronized (bufferLock) {
-                if (doubleBufferingEnabled && updatingVertexBuffer != null) {
-                    updatingVertexBuffer.clear();
-                    updatingVertexBuffer.put(coordinates);
-                    updatingVertexBuffer.position(0);
-                    swapBuffers();  // Swap the buffers after updating
-                } else {
-                    vertexCoordinates = coordinates;
-                    if (vertexBuffer != null) {
-                        vertexBuffer.clear();
-                        vertexBuffer.put(vertexCoordinates);
-                        vertexBuffer.position(0);
-                    }
-                }
-            }
+    // Synchronized method for setting plane coordinates with double buffering
+    public synchronized void setPlaneCoordinates(float[] coordinates) {
+        if (coordinates.length == 12 && updatingVertexBuffer != null) {
+            updatingVertexBuffer.clear();
+            updatingVertexBuffer.put(coordinates);
+            updatingVertexBuffer.position(0);
+            swapBuffers();
         }
     }
 
@@ -248,17 +237,17 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
         float[] interpolatedCoordinates = lerpCoordinates(currentCoords, targetCoordinates, INTERPOLATION_FATOR);
         mainActivity.setCurrCoordinates(interpolatedCoordinates);
         mainActivity.updateGLSurfaceViewCoordinates();
-        
+
         synchronized (bufferLock) {
             // Drawing background and video frame
             drawBackground();
             drawVideoFrame();
         }
-        
+
         checkOpenGLErrors();
     }
 
-        /**
+    /**
      * Linearly interpolates between two coordinate sets.
      *
      * @param start The starting coordinates.
@@ -317,7 +306,6 @@ public abstract class GLRenderer implements GLSurfaceView.Renderer, SurfaceTextu
         GLES20.glDisableVertexAttribArray(bgPositionHandle);
         GLES20.glDisableVertexAttribArray(bgTextureCoordHandle);
     }
-
 
     private void drawVideoFrame() {
         GLES20.glUseProgram(mProgram);

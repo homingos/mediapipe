@@ -7,128 +7,117 @@ import android.util.Log;
 import java.io.*;
 
 /**
- * This class implements functions allowing to access assets of an Android project/application with native code.
+ * This class implements functions allowing to access assets of an Android
+ * project/application with native code.
+ *
  * @ingroup platformandroid
  */
-public class Assets
-{
-	/**
-	 * Copies all files located in the assets folder to a specified location.
-	 * @param assetManager The asset manager from which the files will be copied
-	 * @param targetPath The path where the asset files will be copied
-	 * @param recursive True, to copy files from sub-directories also
-	 * @return True, if succeeded
-	 */
-	public static boolean copyFiles(AssetManager assetManager, String targetPath, boolean recusive)
-	{
-		return copyFiles(assetManager, "", targetPath, recusive);
-	}
+public class Assets {
 
-	/**
-	 * Copies all files located in the assets folder to a specified location.
-	 * @param assetManager The asset manager from which the files will be copied
-	 * @param sourcePath The path in the asset folder from which the files will be copied
-	 * @param targetPath The path where the asset files will be copied
-	 * @param recursive True, to copy files from sub-directories also
-	 * @return True, if succeeded
-	 */
-	public static boolean copyFiles(AssetManager assetManager, String sourcePath, String targetPath, boolean recusive)
-	{
-		if (targetPath.length() == 0)
-		{
-			Log.e("Aman", "Invalid target path");
-			return false;
-		}
+    /**
+     * Copies all files located in the assets folder to a specified location.
+     *
+     * @param assetManager The asset manager from which the files will be copied
+     * @param targetPath The path where the asset files will be copied
+     * @param recursive True, to copy files from sub-directories also
+     * @return True, if succeeded
+     */
+    public static boolean copyFiles(AssetManager assetManager, String targetPath, boolean recusive) {
+        return copyFiles(assetManager, "", targetPath, recusive);
+    }
 
-		String extendedTargetPath = new String(targetPath);
+    /**
+     * Copies all files located in the assets folder to a specified location.
+     *
+     * @param assetManager The asset manager from which the files will be copied
+     * @param sourcePath The path in the asset folder from which the files will
+     * be copied
+     * @param targetPath The path where the asset files will be copied
+     * @param recursive True, to copy files from sub-directories also
+     * @return True, if succeeded
+     */
+    public static boolean copyFiles(AssetManager assetManager, String sourcePath, String targetPath, boolean recusive) {
+        if (targetPath.length() == 0) {
+            Log.e("RtCS", "Invalid target path");
+            return false;
+        }
 
-		if (extendedTargetPath.lastIndexOf('/') != extendedTargetPath.length() - 1)
-		{
-			extendedTargetPath += '/';
-		}
+        String extendedTargetPath = new String(targetPath);
 
-		try
-		{
-			String[] assetList = assetManager.list(sourcePath);
+        if (extendedTargetPath.lastIndexOf('/') != extendedTargetPath.length() - 1) {
+            extendedTargetPath += '/';
+        }
 
-			new File(targetPath).mkdirs();
+        try {
+            String[] assetList = assetManager.list(sourcePath);
 
-			for (int n = 0; n < assetList.length; ++n)
-			{
-				String assetName = assetList[n];
+            new File(targetPath).mkdirs();
 
-				String assetSubDirectoryName = sourcePath.length() == 0 ? assetName : (sourcePath + "/" + assetName);
-				String[] assetSubList = assetManager.list(assetSubDirectoryName);
+            for (int n = 0; n < assetList.length; ++n) {
+                String assetName = assetList[n];
 
-				if (assetSubList.length == 0)
-				{
-					// we have a file
-					copyFile(assetManager, assetSubDirectoryName, extendedTargetPath + assetName, false);
-				}
-				else if (recusive)
-				{
-					// we have a sub-directory
-					copyFiles(assetManager, assetSubDirectoryName, extendedTargetPath + assetName, recusive);
-				}
-			}
+                String assetSubDirectoryName = sourcePath.length() == 0 ? assetName : (sourcePath + "/" + assetName);
+                String[] assetSubList = assetManager.list(assetSubDirectoryName);
 
-			return true;
-		}
-		catch(Exception exception)
-		{
-			Log.e("Aman", "Failed to copy asset files: " + exception.getMessage());
-		}
+                if (assetSubList.length == 0) {
+                    // we have a file
+                    copyFile(assetManager, assetSubDirectoryName, extendedTargetPath + assetName, false);
+                } else if (recusive) {
+                    // we have a sub-directory
+                    copyFiles(assetManager, assetSubDirectoryName, extendedTargetPath + assetName, recusive);
+                }
+            }
 
-		return false;
-	}
+            return true;
+        } catch (Exception exception) {
+            Log.e("RtCS", "Failed to copy asset files: " + exception.getMessage());
+        }
 
-	/**
-	 * Copies one file from the assets folder of the android application to a specified location.
-	 * @param assetManager The asset manager from which the files will be copied
-	 * @param source The name of the source file as located in the assets folder
-	 * @param target The path and name of the target file
-	 * @param createTargetDirectories True, to create the directories of the target path, if not existing
-	 * @return True, if succeeded
-	 */
-	public static boolean copyFile(AssetManager assetManager, String source, String target, boolean createTargetDirectories)
-	{
-		try
-		{
-			InputStream inputStream = assetManager.open(source);
+        return false;
+    }
 
-			int size = inputStream.available();
+    /**
+     * Copies one file from the assets folder of the android application to a
+     * specified location.
+     *
+     * @param assetManager The asset manager from which the files will be copied
+     * @param source The name of the source file as located in the assets folder
+     * @param target The path and name of the target file
+     * @param createTargetDirectories True, to create the directories of the
+     * target path, if not existing
+     * @return True, if succeeded
+     */
+    public static boolean copyFile(AssetManager assetManager, String source, String target, boolean createTargetDirectories) {
+        try {
+            InputStream inputStream = assetManager.open(source);
 
-			byte[] buffer = new byte[size];
-			inputStream.read(buffer);
-			inputStream.close();
+            int size = inputStream.available();
 
-			if (createTargetDirectories)
-			{
-				new File(target).getParentFile().mkdirs();
-			}
+            byte[] buffer = new byte[size];
+            inputStream.read(buffer);
+            inputStream.close();
 
-			FileOutputStream outputStream = new FileOutputStream(target);
-			outputStream.write(buffer);
-			outputStream.close();
+            if (createTargetDirectories) {
+                new File(target).getParentFile().mkdirs();
+            }
 
-			boolean debugOutput = false;
+            FileOutputStream outputStream = new FileOutputStream(target);
+            outputStream.write(buffer);
+            outputStream.close();
 
-			if (debugOutput)
-			{
-				Log.d("Aman", "Copied file: " + source + " to " + target + ".");
-			}
+            boolean debugOutput = false;
 
-			return true;
-		}
-		catch(FileNotFoundException exception)
-		{
-			Log.e("Aman", "Failed to copy file: " + source + " as it could not be found.");
-		}
-		catch(Exception exception)
-		{
-			Log.e("Aman", "Failed to copy file " + source + ", due to: " + exception.getMessage());
-		}
+            if (debugOutput) {
+                Log.d("RtCS", "Copied file: " + source + " to " + target + ".");
+            }
 
-		return false;
-	}
+            return true;
+        } catch (FileNotFoundException exception) {
+            Log.e("RtCS", "Failed to copy file: " + source + " as it could not be found.");
+        } catch (Exception exception) {
+            Log.e("RtCS", "Failed to copy file " + source + ", due to: " + exception.getMessage());
+        }
+
+        return false;
+    }
 }

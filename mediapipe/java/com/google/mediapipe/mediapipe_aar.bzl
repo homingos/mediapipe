@@ -99,7 +99,7 @@ cat > $(OUTS) <<EOF
     package="com.google.mediapipe">
     <uses-sdk
         android:minSdkVersion="21"
-        android:targetSdkVersion="27" />
+        android:targetSdkVersion="34" />
 </manifest>
 EOF
 """,
@@ -148,6 +148,7 @@ EOF
             "@maven//:com_google_flogger_flogger_system_backend",
             "@maven//:com_google_guava_guava",
             "@maven//:androidx_lifecycle_lifecycle_common",
+            "@maven//:com_squareup_okhttp3_okhttp",
         ] + select({
             "//conditions:default": [":" + name + "_jni_opencv_cc_lib"],
             "//mediapipe/framework/port:disable_opencv": [],

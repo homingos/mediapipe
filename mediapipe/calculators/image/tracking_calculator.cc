@@ -23,7 +23,7 @@ namespace mediapipe
 
     const char kOptionsTag[] = "OPTIONS";
     const int kPatchSize = 32;
-    const int kNumThreads = 2;
+    const int kNumThreads = 4;
     const double MAX_CHANGE_THRESHOLD = 1.14;
     // Calculator to find homography and warp a secondary image onto the primary
     // image.
@@ -45,7 +45,7 @@ namespace mediapipe
         {
             cc->SetOffset(::mediapipe::TimestampDiff(0));
 
-            feature_detector_ = cv::AKAZE::create(cv::AKAZE::DESCRIPTOR_MLDB, 200);
+            feature_detector_ = cv::BRISK::create(60, 8, 1.4f);
             matcher_ = cv::makePtr<cv::FlannBasedMatcher>(cv::makePtr<cv::flann::LshIndexParams>(20, 10, 1));
             pool_ = absl::make_unique<mediapipe::ThreadPool>("TrackingPool", kNumThreads);
             pool_->StartWorkers();
@@ -103,10 +103,8 @@ namespace mediapipe
             {
                 cv::Mat primary_view = formats::MatView(&primary_image);
                 cv::Mat secondary_view = formats::MatView(&secondary_image);
-                // Convert to grayscale for feature detection.
                 cv::Mat primary_gray, secondary_gray;
 
-                // Detect ORB features.
                 std::vector<cv::KeyPoint> primary_keypoints, secondary_keypoints;
                 cv::Mat primary_descriptors, secondary_descriptors;
                 absl::BlockingCounter counter(2);
@@ -131,51 +129,38 @@ namespace mediapipe
 
                 counter.Wait();
 
-                // Match features using brute force matcher.
-                std::vector<std::vector<cv::DMatch>> knn_matches;
-                try
+                if (primary_descriptors.empty() || secondary_descriptors.empty())
                 {
-                    if (primary_descriptors.empty() || secondary_descriptors.empty())
-                    {
-                        return;
-                    }
-
-                    matcher_->knnMatch(primary_descriptors, secondary_descriptors,
-                                       knn_matches, 2);
-                }
-                catch (const cv::Exception &e)
-                {
-                    LOG(ERROR) << "OpenCV Exception during matching: " << e.what();
+                    ABSL_LOG(WARNING) << "No features detected in one of the images.";
                     return;
                 }
 
-                const float ratio_thresh = 0.75f;
-                std::vector<cv::DMatch> good_matches;
-                ParallelFor(0, knn_matches.size(), 1,
-                            [&knn_matches, &good_matches, ratio_thresh](const BlockedRange &b)
-                            {
-                                for (size_t i = b.begin(); i != b.end(); ++i)
-                                {
-                                    if (knn_matches[i][0].distance < ratio_thresh * knn_matches[i][1].distance)
-                                    {
-                                        good_matches.push_back(knn_matches[i][0]);
-                                    }
-                                }
-                            });
+                if (primary_descriptors.type() != CV_8U || secondary_descriptors.type() != CV_8U)
+                {
+                    ABSL_LOG(ERROR) << "Unexpected descriptor type. Expected CV_8U.";
+                    return;
+                }
 
-                // Find homography matrix.
+                std::vector<cv::DMatch> matches;
+                matcher_->match(primary_descriptors, secondary_descriptors, matches);
+
+                const float distance_threshold = 50.0f; // Adjust this value as needed
+                std::vector<cv::DMatch> good_matches;
+                for (const auto &match : matches)
+                {
+                    if (match.distance < distance_threshold)
+                    {
+                        good_matches.push_back(match);
+                    }
+                }
+
+                // Extract matched keypoints
                 std::vector<cv::Point2f> primary_points, secondary_points;
-                ParallelFor(0, good_matches.size(), 1,
-                            [&good_matches, &primary_keypoints, &secondary_keypoints,
-                             &primary_points, &secondary_points](const BlockedRange &b)
-                            {
-                                for (size_t i = b.begin(); i != b.end(); ++i)
-                                {
-                                    const auto &match = good_matches[i];
-                                    primary_points.push_back(primary_keypoints[match.queryIdx].pt);
-                                    secondary_points.push_back(secondary_keypoints[match.trainIdx].pt);
-                                }
-                            });
+                for (const auto &match : good_matches)
+                {
+                    primary_points.push_back(primary_keypoints[match.queryIdx].pt);
+                    secondary_points.push_back(secondary_keypoints[match.trainIdx].pt);
+                }
 
                 // Estimate fundamental matrix
                 cv::Mat fundamental_matrix = cv::findFundamentalMat(primary_points, secondary_points, cv::FM_RANSAC);
@@ -209,7 +194,7 @@ namespace mediapipe
 
                 // Find homography matrix using filtered matches
                 cv::Mat homography;
-                if (filtered_primary_points.size() >= 16 && filtered_secondary_points.size() >= 16)
+                if (filtered_primary_points.size() >= 8 && filtered_secondary_points.size() >= 8)
                 {
                     homography = cv::findHomography(filtered_secondary_points, filtered_primary_points, cv::RANSAC);
                     if (!homography.empty())
@@ -231,10 +216,9 @@ namespace mediapipe
 
                         // Assuming you want to track only one box (the template)
                         box_ptr->set_id(420); // Assign a unique ID
-                        box_ptr->set_reacquisition(true);
+                        box_ptr->set_reacquisition(false);
                         box_ptr->set_aspect_ratio(primary_view.cols / primary_view.rows);
-                        auto ts = cc->InputTimestamp();
-                        box_ptr->set_time_msec(ts.Microseconds() / 1000);
+                        box_ptr->set_time_msec(cc->InputTimestamp().Microseconds() / 1000);
 
                         // Add vertices to TimedBoxProto in COUNTER-CLOCKWISE order:
                         box_ptr->mutable_quad()->add_vertices(projectedCorners[0].x / primary_view.cols);
@@ -261,7 +245,9 @@ namespace mediapipe
                             .Add(feedback_homography.release(), cc->InputTimestamp());
                         return;
                     }
-                }else{
+                }
+                else
+                {
                     return;
                 }
             }

@@ -7,6 +7,7 @@ input_stream: "enable_scanning"
 output_stream: "output_video"
 output_stream: "output_tensor_floats"
 output_stream: "rr_index"
+output_stream: "boxes"
 
 max_queue_size: 200
 num_threads: 16

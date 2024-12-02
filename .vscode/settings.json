@@ -112,7 +112,13 @@
         "filesystem": "cpp",
         "alignedvector3": "cpp",
         "*.expression": "cpp",
-        "text_encoding": "cpp"
+        "text_encoding": "cpp",
+        "print": "cpp",
+        "cfenv": "cpp",
+        "csetjmp": "cpp",
+        "scoped_allocator": "cpp",
+        "strstream": "cpp",
+        "expected": "cpp"
     },
     "java.compile.nullAnalysis.mode": "automatic",
     "java.completion.favoriteStaticMembers": [
@@ -150,5 +156,6 @@
         "bin": false,
         "com": false
     },
-    "java.configuration.updateBuildConfiguration": "automatic"
+    "java.configuration.updateBuildConfiguration": "automatic",
+    "CodeGPT.apiKey": "Ollama"
 }

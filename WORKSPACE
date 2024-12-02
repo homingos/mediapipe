@@ -680,5 +680,5 @@ http_archive(
     build_file = "@//third_party:nlohmann.BUILD",
 )
 
-android_sdk_repository(name = "androidsdk", path = "/root/Android/Sdk")
-android_ndk_repository(name = "androidndk", api_level=21, path = "/root/Android/Sdk/ndk-bundle/android-ndk-r21")
+android_sdk_repository(name = "androidsdk", path = "/Users/debadityasen/Android/Sdk")
+android_ndk_repository(name = "androidndk", api_level=21, path = "/Users/debadityasen/Android/Sdk/ndk-bundle/android-ndk-r21")

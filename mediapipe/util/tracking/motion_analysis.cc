@@ -1,16 +1,13 @@
-// Copyright 2019 The MediaPipe Authors.
+// Copyright 2024 Flamingos Technologies Inc. All Rights Reserved.
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+// PROPRIETARY AND CONFIDENTIAL
 //
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// This software and its documentation are the confidential and proprietary
+// information of Flamingos Technologies Inc. ("Confidential Information").
+// You shall not disclose such Confidential Information and shall use it
+// only in accordance with the terms of the license agreement you entered
+// into with Flamingos Technologies Inc. Unauthorized copying, redistribution,
+// or use of this software in source or binary forms is strictly prohibited.
 
 #include "mediapipe/util/tracking/motion_analysis.h"
 
@@ -226,13 +223,13 @@ void MotionAnalysis::InitPolicyOptions() {
           TrackingOptions::POLICY_LONG_TRACKS);
 
       motion_options->set_estimation_policy(
-          MotionEstimationOptions::TEMPORAL_IRLS_MASK);
+          MotionEstimationOptions::INDEPENDENT_PARALLEL);
       motion_options->set_feature_density_normalization(true);
       motion_options->set_domain_limited_irls_scaling(true);
       motion_options->mutable_irls_initialization()->set_activated(true);
       motion_options->mutable_irls_initialization()->set_rounds(50);
 
-      feature_bias_options->set_use_spatial_bias(false);
+      feature_bias_options->set_use_spatial_bias(true);
       feature_bias_options->set_seed_priors_from_bias(true);
 
       similarity_bounds->set_inlier_threshold(2.0);

@@ -6,8 +6,9 @@ input_stream: "enable_scanning"
 output_stream: "output_tensor_floats"
 output_stream: "rr_index"
 output_stream: "box_floats"
+output_stream: "tracking"
 
-num_threads: 2
+num_threads: 1
 max_queue_size: 1
 
 node {
@@ -22,24 +23,18 @@ node {
   output_stream: "scanning_frame"
 }
 
-
 node {
-  calculator: "StreamToSidePacketCalculator"
+  calculator: "PacketClonerCalculator"
+  input_stream: "TICK:input_video_cpu"
   input_stream: "enable_scanning"
-  output_side_packet: "enable_scanning_side_packet"
+  output_stream: "cloned_enable_scanning"
 }
 
-node {
-  calculator: "SidePacketToStreamCalculator"
-  input_stream: "TICK:scanning_frame"
-  input_side_packet: "enable_scanning_side_packet"
-  output_stream: "AT_TICK:enable_scanning_packet"
-}
 
 node {
     calculator: "GateCalculator"
     input_stream: "scanning_frame"
-    input_stream: "ALLOW:enable_scanning_packet"
+    input_stream: "ALLOW:cloned_enable_scanning"
     output_stream: "scanning_frame_enabled"
 }
 
@@ -48,6 +43,7 @@ node {
     input_stream: "IMAGE:scanning_frame_enabled"
     output_stream: "IMAGE:scanning_frame_enabled_cropped"
 }
+
 
 node {
   calculator: "ScanningSubgraph"
@@ -64,9 +60,16 @@ node {
 }
 
 node {
+  calculator: "PacketClonerCalculator"
+  input_stream: "TICK:input_video_cpu"
+  input_stream: "enable_scanning"
+  output_stream: "cloned_enable_tracking"
+}
+
+node {
     calculator: "GateCalculator"
     input_stream: "tracking_frame"
-    input_stream: "DISALLOW:enable_scanning_packet"
+    input_stream: "DISALLOW:cloned_enable_tracking"
     output_stream: "tracking_frame_enabled"
 }
 
@@ -76,7 +79,7 @@ node {
   output_stream: "DATA:throttled_tracking_frame_enabled"
   node_options: {
     [type.googleapis.com/mediapipe.PacketResamplerCalculatorOptions] {
-      frame_rate: 2.0
+      frame_rate: 0.8
     }
   }
 }
@@ -91,7 +94,7 @@ node {
 node {
   calculator: "FlowLimiterCalculator"
   input_stream: "input_video_cpu"
-  input_stream: "FINISHED:boxes"
+  input_stream: "FINISHED:box_floats"
   input_stream_info: {
     tag_index: "FINISHED"
     back_edge: true
@@ -115,19 +118,19 @@ node: {
       analysis_options {
         analysis_policy: ANALYSIS_POLICY_CAMERA_MOBILE
         flow_options {
-          fast_estimation_min_block_size: 50
-          top_inlier_sets: 1
-          frac_inlier_error_threshold: 1e-3
-          downsample_mode: DOWNSAMPLE_TO_MIN_SIZE
-          verification_distance: 2.3
+          fast_estimation_min_block_size: 150
+          top_inlier_sets: 4
+          frac_inlier_error_threshold: 3e-5
+          downsample_mode: DOWNSAMPLE_TO_INPUT_SIZE
+          verification_distance: 5.0
           verify_long_feature_acceleration: true
-          verify_long_feature_trigger_ratio: 0.2
+          verify_long_feature_trigger_ratio: 0.6
           tracking_options {
-            max_features: 250
+            max_features: 200
             internal_tracking_direction: FORWARD
-            adaptive_extraction_levels: 10
+            adaptive_extraction_levels: 5
             min_eig_val_settings {
-              adaptive_lowest_quality_level: 3e-4
+              adaptive_lowest_quality_level: 2e-4
             }
             klt_tracker_implementation: KLT_OPENCV
           }
@@ -181,10 +184,10 @@ node: {
           track_object_and_camera: true
           tracking_degrees: TRACKING_DEGREE_OBJECT_PERSPECTIVE
           inlier_spring_force: 0.0
-          static_motion_temporal_ratio: 2e-2
+          static_motion_temporal_ratio: 1e-8
         }
       }
-      streaming_track_data_cache_size: 100
+      streaming_track_data_cache_size: 20
     }
   }
 }
@@ -200,4 +203,5 @@ node {
   input_stream: "BOXES:boxes"
   input_stream: "PROPS:gated_image_size"
   output_stream: "BFLOATS:box_floats"
+  output_stream: "TRACKING:tracking"
 }

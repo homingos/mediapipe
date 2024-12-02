@@ -26,6 +26,7 @@ namespace mediapipe
 
         absl::Status Process(CalculatorContext *cc) override
         {
+            ABSL_LOG(WARNING) << "Localization calculation running";
             const auto &input_img = cc->Inputs().Tag("IMAGE").Get<ImageFrame>();
             cv::Mat image = formats::MatView(&input_img);
             cv::Mat cropped_image = LocalizePicture(image);

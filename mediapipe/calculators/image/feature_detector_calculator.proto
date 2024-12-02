@@ -17,8 +17,8 @@ message FeatureDetectorCalculatorOptions {
   optional int32 max_features = 2 [default = 200];
 
   // The number of pyramid levels.
-  optional int32 pyramid_level = 3 [default = 4];
+  optional int32 pyramid_level = 3 [default = 8];
 
   // Pyramid decimation ratio.
-  optional float scale_factor = 4 [default = 1.2];
+  optional float scale_factor = 4 [default = 1.4];
 }

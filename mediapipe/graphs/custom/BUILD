@@ -33,7 +33,7 @@ cc_library(
         "//mediapipe/calculators/core:flow_limiter_calculator",
         "//mediapipe/calculators/image:box_to_floats_calculator",
         "//mediapipe/calculators/image:image_properties_calculator",
-
+        "//mediapipe/calculators/image:imu_calculator",
     ],
 )
 

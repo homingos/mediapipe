@@ -5,6 +5,7 @@ input_stream: "input_frame"
 input_stream: "query_feats"
 output_stream: "FLOATS:output_tensor_floats"
 output_stream: "rr_index"
+max_queue_size: 1
 
 node {
   calculator: "FlowLimiterCalculator"
@@ -56,7 +57,6 @@ node {
   input_stream: "QFEATURES:cloned_query_feats"
   output_stream: "RESULT:rr_index"
 }
-
 
 node {
   calculator: "ImageTransformationCalculator"
